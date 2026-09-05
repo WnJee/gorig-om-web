@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   Tabs,
@@ -32,15 +32,41 @@ import {
   SettingOutlined,
   InfoCircleFilled,
   CheckOutlined,
+  VerticalAlignBottomOutlined,
 } from '@ant-design/icons';
 import { deployApi } from '../../api/deploy';
 import { EnvVersion, GoEnv, SshKey, TaskOptions, TaskRecord, TaskRecordLog } from '../../types';
 import { TaskStatusBadge } from '../../components/StatusBadge';
 import { CodeViewer } from '../../components/CodeViewer';
 import { formatTime } from '../../utils/format';
+import dayjs from 'dayjs';
 import { DeployConfigModal } from './DeployConfigModal';
 
 const { Title, Paragraph } = Typography;
+
+function formatTaskDuration(start?: string | number, finish?: string | number, status?: string): string {
+  if (!start) return '-';
+  const startDay = dayjs(typeof start === 'number' && start < 1e11 ? start * 1000 : start);
+  if (!startDay.isValid()) return '-';
+
+  if (finish) {
+    const finishDay = dayjs(typeof finish === 'number' && finish < 1e11 ? finish * 1000 : finish);
+    if (finishDay.isValid() && finishDay.isAfter(startDay)) {
+      const diff = finishDay.diff(startDay, 'second');
+      if (diff < 60) return `${diff}秒`;
+      return `${Math.floor(diff / 60)}分${diff % 60}秒`;
+    }
+    return '1秒';
+  }
+
+  if (status === 'running' || status === 'waiting') {
+    const diff = Math.max(0, dayjs().diff(startDay, 'second'));
+    if (diff < 60) return `${diff}秒 (执行中)`;
+    return `${Math.floor(diff / 60)}分${diff % 60}秒 (执行中)`;
+  }
+
+  return '-';
+}
 
 export const DeployPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('tasks');
@@ -56,6 +82,31 @@ export const DeployPage: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<TaskRecord | null>(null);
   const [taskDetailDrawerOpen, setTaskDetailDrawerOpen] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  };
+
+  useEffect(() => {
+    if (taskDetailDrawerOpen && selectedTask?.log?.length) {
+      setTimeout(scrollToBottom, 80);
+    }
+  }, [taskDetailDrawerOpen, selectedTask?.log?.length]);
+
+  const handleCopyLogs = () => {
+    if (!selectedTask?.log || selectedTask.log.length === 0) {
+      message.info('暂无日志可复制');
+      return;
+    }
+    const text = selectedTask.log
+      .map((item) => `[${formatTime(item.time, 'HH:mm:ss')}] [${(item.level || 'info').toUpperCase()}] ${item.text}`)
+      .join('\n');
+    navigator.clipboard.writeText(text);
+    message.success('已复制完整部署日志到剪贴板');
+  };
 
   // Config Wizard Modal & State
   const [configModalOpen, setConfigModalOpen] = useState(false);
@@ -315,12 +366,14 @@ export const DeployPage: React.FC = () => {
       ),
     },
     {
-      title: '执行时间',
+      title: '执行时间 / 耗时',
       key: 'time',
       render: (_: any, r: TaskRecord) => (
         <div className="text-xs text-gray-500 font-mono space-y-0.5">
           <div>起: {formatTime(r.startAt || r.createAt)}</div>
-          {r.finishAt && <div>止: {formatTime(r.finishAt)}</div>}
+          <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+            耗时: {formatTaskDuration(r.startAt || r.createAt, r.finishAt, r.status)}
+          </div>
         </div>
       ),
     },
@@ -952,65 +1005,106 @@ export const DeployPage: React.FC = () => {
       {/* Task Log Execution Drawer */}
       <Drawer
         title={
-          <div>
-            <span>部署执行日志: </span>
+          <div className="flex items-center justify-between pr-6">
+            <div className="flex items-center space-x-2">
+              <FileTextOutlined className="text-indigo-500" />
+              <span className="font-semibold text-sm">部署执行日志</span>
+              {selectedTask && (
+                <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">
+                  {selectedTask.id}
+                </span>
+              )}
+            </div>
             {selectedTask && (
-              <span className="font-mono text-xs text-indigo-600 dark:text-indigo-400 ml-1">
-                {selectedTask.id}
-              </span>
+              <Space size="small">
+                <Button
+                  size="small"
+                  icon={<VerticalAlignBottomOutlined />}
+                  onClick={scrollToBottom}
+                  className="text-xs"
+                >
+                  滚至底部
+                </Button>
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={handleCopyLogs}
+                  className="text-xs"
+                >
+                  复制日志
+                </Button>
+              </Space>
             )}
           </div>
         }
         open={taskDetailDrawerOpen}
         onClose={() => setTaskDetailDrawerOpen(false)}
-        width={720}
+        width={860}
+        styles={{
+          body: {
+            padding: '16px 20px',
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            overflow: 'hidden',
+          },
+        }}
       >
         {detailLoading ? (
-          <div className="text-center py-20 text-gray-400">正在拉取任务日志...</div>
+          <div className="text-center py-24 text-gray-400 text-xs">正在拉取任务日志...</div>
         ) : selectedTask ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-slate-800 text-xs">
-              <Space>
-                <span>状态:</span>
-                <TaskStatusBadge status={selectedTask.status} />
+          <div className="flex flex-col h-full space-y-3 min-h-0">
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800/80 border border-gray-100 dark:border-slate-800 text-xs flex-shrink-0">
+              <Space size="middle">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400">状态:</span>
+                  <TaskStatusBadge status={selectedTask.status} />
+                </div>
+                {selectedTask.branch && (
+                  <div className="flex items-center gap-1 font-mono text-gray-600 dark:text-gray-300">
+                    <BranchesOutlined className="text-indigo-500" />
+                    <span>{selectedTask.branch}</span>
+                  </div>
+                )}
               </Space>
-              <span className="font-mono text-gray-500">
-                耗时: {formatTime(selectedTask.startAt, 'HH:mm:ss')} ~{' '}
-                {selectedTask.finishAt ? formatTime(selectedTask.finishAt, 'HH:mm:ss') : '执行中...'}
-              </span>
+              <div className="font-mono text-xs text-gray-500 flex items-center gap-3">
+                <span>起: {formatTime(selectedTask.startAt || selectedTask.createAt, 'HH:mm:ss')}</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                  耗时: {formatTaskDuration(selectedTask.startAt || selectedTask.createAt, selectedTask.finishAt, selectedTask.status)}
+                </span>
+              </div>
             </div>
 
-            <div className="rounded-lg overflow-hidden border border-gray-800 bg-gray-950 font-mono text-xs p-4 h-[550px] overflow-auto custom-scrollbar space-y-2">
+            <div
+              ref={logContainerRef}
+              className="flex-1 min-h-0 rounded-xl border border-gray-800 bg-gray-950 font-mono text-xs p-4 overflow-y-auto overflow-x-auto select-text space-y-2.5 shadow-inner"
+              style={{ maxHeight: 'calc(100vh - 160px)' }}
+            >
               {(selectedTask.log || []).length === 0 ? (
-                <div className="text-gray-500 text-center py-10">暂无步骤日志输出</div>
+                <div className="text-gray-500 text-center py-16">暂无步骤日志输出</div>
               ) : (
                 selectedTask.log?.map((item: TaskRecordLog, idx: number) => (
-                  <div key={idx} className="flex items-start space-x-2">
-                    <span className="text-gray-500 select-none whitespace-nowrap">
+                  <div
+                    key={idx}
+                    className="flex items-start space-x-2.5 group hover:bg-gray-900/60 -mx-2 px-2 py-0.5 rounded transition"
+                  >
+                    <span className="text-gray-500 select-none whitespace-nowrap text-[11px] pt-0.5 font-mono">
                       {formatTime(item.time, 'HH:mm:ss')}
                     </span>
                     <span
-                      className={`select-none uppercase px-1 rounded text-[10px] ${
+                      className={`select-none uppercase px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider ${
                         item.level === 'error'
-                          ? 'bg-red-950 text-red-400'
+                          ? 'bg-red-950 text-red-400 border border-red-800/50'
                           : item.level === 'warn'
-                          ? 'bg-amber-950 text-amber-400'
-                          : 'bg-indigo-950 text-indigo-400'
+                          ? 'bg-amber-950 text-amber-400 border border-amber-800/50'
+                          : 'bg-indigo-950 text-indigo-400 border border-indigo-800/50'
                       }`}
                     >
-                      {item.level}
+                      {item.level || 'info'}
                     </span>
-                    <span
-                      className={`break-all ${
-                        item.level === 'error'
-                          ? 'text-red-400'
-                          : item.level === 'warn'
-                          ? 'text-amber-300'
-                          : 'text-gray-200'
-                      }`}
-                    >
+                    <pre className="flex-1 font-mono text-xs whitespace-pre-wrap break-all leading-relaxed m-0 select-text text-gray-200">
                       {item.text}
-                    </span>
+                    </pre>
                   </div>
                 ))
               )}

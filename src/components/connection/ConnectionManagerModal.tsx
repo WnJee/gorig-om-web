@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   Table,
@@ -52,30 +52,47 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
 
   const [form] = Form.useForm();
 
+  // When opened with 0 connections, reset form to default values
+  useEffect(() => {
+    if (open && connections.length === 0) {
+      setTestResult(null);
+      setEditingConn(null);
+      form.setFieldsValue({
+        name: "本地服务",
+        serverUrl: "http://127.0.0.1:9617",
+        omKey: "",
+      });
+    }
+  }, [open, connections.length, form]);
+
   // Open add form
   const handleOpenAdd = () => {
     setEditingConn(null);
     setTestResult(null);
-    form.resetFields();
-    form.setFieldsValue({
-      name: "",
-      serverUrl: "http://127.0.0.1:9617",
-      omKey: "",
-    });
     setFormOpen(true);
+    setTimeout(() => {
+      form.resetFields();
+      form.setFieldsValue({
+        name: "",
+        serverUrl: "http://127.0.0.1:9617",
+        omKey: "",
+      });
+    }, 0);
   };
 
   // Open edit form
   const handleOpenEdit = (record: ServiceConnection) => {
     setEditingConn(record);
     setTestResult(null);
-    form.resetFields();
-    form.setFieldsValue({
-      name: record.name,
-      serverUrl: record.serverUrl,
-      omKey: record.omKey,
-    });
     setFormOpen(true);
+    setTimeout(() => {
+      form.resetFields();
+      form.setFieldsValue({
+        name: record.name,
+        serverUrl: record.serverUrl,
+        omKey: record.omKey,
+      });
+    }, 0);
   };
 
   // Switch connection
@@ -106,18 +123,23 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
   // Test connection in form
   const handleTestInForm = async () => {
     try {
-      const values = await form.validateFields(["serverUrl", "omKey"]);
+      const omKey = form.getFieldValue("omKey");
+      if (!omKey || !omKey.trim()) {
+        message.warning("请先输入服务访问秘钥 (om.key)");
+        return;
+      }
+      const serverUrl = form.getFieldValue("serverUrl");
       setTestLoading(true);
       setTestResult(null);
-      const res = await testConnection(values.serverUrl, values.omKey);
+      const res = await testConnection(serverUrl || "", omKey.trim());
       setTestResult(res);
       if (res.success) {
-        message.success("连接测试成功！");
+        message.success("连接测试成功！服务端验证正常通过");
       } else {
         message.error(res.msg || "连接测试失败");
       }
-    } catch {
-      // Form validation error
+    } catch (err: any) {
+      message.error(err?.message || "连接测试失败");
     } finally {
       setTestLoading(false);
     }
@@ -230,9 +252,8 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
 
             <Popconfirm
               title="确定删除此服务连接吗？"
-              description="删除后将无法通过此快捷配置连接该节点。"
+              description={connections.length === 1 ? "删除后系统将无任何服务连接，需重新添加。" : "删除后将无法通过此快捷配置连接该节点。"}
               onConfirm={() => handleDelete(record.id)}
-              disabled={connections.length <= 1}
               okText="删除"
               cancelText="取消"
               okButtonProps={{ danger: true }}
@@ -241,7 +262,6 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
                 danger
                 size="small"
                 icon={<DeleteOutlined />}
-                disabled={connections.length <= 1}
               />
             </Popconfirm>
           </Space>
@@ -249,6 +269,102 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
       },
     },
   ];
+
+  // If no connections are configured at all, directly show the Add Connection modal
+  if (connections.length === 0) {
+    return (
+      <Modal
+        title={
+          <div className="flex items-center space-x-2 text-base">
+            <ApiOutlined className="text-indigo-600" />
+            <span>添加新服务连接</span>
+          </div>
+        }
+        open={open}
+        onCancel={onClose}
+        width={520}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          className="pt-2"
+          initialValues={{
+            name: "本地服务",
+            serverUrl: "http://127.0.0.1:9617",
+            omKey: "",
+          }}
+          onFinish={() => handleSaveForm(true)}
+        >
+          <div className="mb-4 p-3 bg-indigo-50/80 dark:bg-indigo-950/40 rounded-xl border border-indigo-100/80 dark:border-indigo-900/50 text-xs text-indigo-700 dark:text-indigo-300 leading-relaxed">
+            当前尚未配置任何后端服务节点。请配置并连接一个 Gorig-OM 服务节点以开启监控与管理控制台。
+          </div>
+
+          <Form.Item
+            name="name"
+            label="服务名称 / 节点备注"
+            rules={[{ required: true, message: "请输入服务名称" }]}
+          >
+            <Input placeholder="例如：本地开发服务 / 线上生产节点-01" />
+          </Form.Item>
+
+          <Form.Item
+            name="serverUrl"
+            label="服务接口地址"
+            tooltip="输入完整的 HTTP/HTTPS 地址，例如 http://127.0.0.1:9617。若与前端同域或走前端反向代理可留空。"
+          >
+            <Input
+              prefix={<LinkOutlined className="text-gray-400" />}
+              placeholder="例如：http://127.0.0.1:9617"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="omKey"
+            label="OM 访问秘钥 (om.key)"
+            rules={[{ required: true, message: "请输入服务访问秘钥" }]}
+            tooltip="对应服务端 local.yaml 或启动配置中指定的 om.key"
+          >
+            <Input.Password
+              prefix={<KeyOutlined className="text-gray-400" />}
+              placeholder="例如：test123456"
+            />
+          </Form.Item>
+
+          {testResult && (
+            <Alert
+              type={testResult.success ? "success" : "error"}
+              message={testResult.success ? "连接测试通过，服务端验证正常" : "连接失败: " + testResult.msg}
+              showIcon
+              className="mb-4 text-xs"
+            />
+          )}
+
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-800">
+            <Button
+              icon={<ThunderboltOutlined />}
+              loading={testLoading}
+              onClick={handleTestInForm}
+            >
+              测试连通性
+            </Button>
+
+            <Space>
+              <Button onClick={onClose}>取消</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                保存并立即连接
+              </Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
+    );
+  }
 
   return (
     <Modal

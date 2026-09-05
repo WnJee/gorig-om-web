@@ -11,6 +11,8 @@ import {
   AreaChartOutlined,
   DatabaseOutlined,
   ThunderboltFilled,
+  PlusOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
@@ -21,6 +23,7 @@ import { ApiLatencySummary, PageTimeItem, ReStartLog, ResType, ResUsage } from '
 import { TimeRangeSelector } from '../../components/TimeRangeSelector';
 import { formatChartTime, formatLatency, formatMB, formatNumber, formatTime } from '../../utils/format';
 import { useAppStore } from '../../stores/useAppStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { message } from '../../utils/antMsg';
 
 import { AppManagePage } from '../app/AppManagePage';
@@ -29,6 +32,7 @@ import { ErrorStatPage } from '../stats/ErrorStatPage';
 import { RuntimeStatPage } from '../stats/RuntimeStatPage';
 
 export const DashboardPage: React.FC = () => {
+  const { connections, activeId } = useAuthStore();
   const [restarting, setRestarting] = useState(false);
 
   // App & Host Data
@@ -66,6 +70,9 @@ export const DashboardPage: React.FC = () => {
 
   // Fetch all overview data
   const fetchAllData = useCallback(async () => {
+    if (connections.length === 0 || !activeId) {
+      return;
+    }
     const nowMs = Date.now();
     // Prevent duplicate fetch within 350ms or while already running
     if (nowMs - lastFetchTimeRef.current < 350 || isFetchingRef.current) {
@@ -159,15 +166,20 @@ export const DashboardPage: React.FC = () => {
 
   // Load once on mount and subscribe to service switch / manual refresh
   useEffect(() => {
+    if (connections.length === 0 || !activeId) return;
     fetchAllData();
-    const handleReload = () => fetchAllData();
+    const handleReload = () => {
+      if (useAuthStore.getState().connections.length > 0) {
+        fetchAllData();
+      }
+    };
     window.addEventListener('gorig_service_switched', handleReload);
     window.addEventListener('gorig_manual_refresh', handleReload);
     return () => {
       window.removeEventListener('gorig_service_switched', handleReload);
       window.removeEventListener('gorig_manual_refresh', handleReload);
     };
-  }, [fetchAllData]);
+  }, [connections.length, activeId, fetchAllData]);
 
   useEffect(() => {
     if (hostModalOpen) {
@@ -353,6 +365,32 @@ export const DashboardPage: React.FC = () => {
       },
     ],
   });
+
+  // If no connections configured, do not show the overview page at all
+  if (connections.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[520px] p-8 bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 shadow-sm text-center">
+        <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 text-3xl mb-4 shadow-sm">
+          <ApiOutlined />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+          未配置服务连接
+        </h3>
+        <p className="text-sm text-gray-400 dark:text-gray-500 max-w-md mb-6 leading-relaxed">
+          当前系统尚未配置任何 Gorig-OM 后端服务连接。请先添加一个服务连接以查看主机指标、运行时监控与系统概览大盘。
+        </p>
+        <Button
+          type="primary"
+          size="large"
+          icon={<PlusOutlined />}
+          onClick={() => window.dispatchEvent(new CustomEvent('gorig_open_connection_modal'))}
+          className="bg-indigo-600 hover:bg-indigo-700 h-10 px-6 rounded-xl text-sm font-medium shadow-sm"
+        >
+          添加新服务连接
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 pb-2">

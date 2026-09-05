@@ -60,6 +60,20 @@ export const MainLayout: React.FC = () => {
     setTimeout(() => setRefreshLoading(false), 500);
   };
 
+  // If no connections configured, auto pop up the add connection modal
+  React.useEffect(() => {
+    if (connections.length === 0) {
+      setConnModalOpen(true);
+    }
+  }, [connections.length]);
+
+  // Global listener to open connection modal
+  React.useEffect(() => {
+    const handleOpen = () => setConnModalOpen(true);
+    window.addEventListener('gorig_open_connection_modal', handleOpen);
+    return () => window.removeEventListener('gorig_open_connection_modal', handleOpen);
+  }, []);
+
   return (
     <Layout className="min-h-screen">
       <Sider
@@ -104,10 +118,12 @@ export const MainLayout: React.FC = () => {
               <span className="text-xs text-gray-400 font-medium hidden sm:inline">服务连接:</span>
               <Select
                 size="small"
-                value={activeId}
+                value={connections.length > 0 && activeId ? activeId : undefined}
+                placeholder="未配置服务"
                 onChange={(val) => switchConnection(val)}
                 className="w-56 text-xs"
                 popupMatchSelectWidth={false}
+                notFoundContent={<div className="p-2 text-xs text-gray-400 text-center">暂无可用连接</div>}
                 options={connections.map((c) => ({
                   value: c.id,
                   label: (
@@ -137,8 +153,12 @@ export const MainLayout: React.FC = () => {
               />
             </div>
 
-            {/* Connection Status Indicator (Clean text without circular background) */}
-            {activeConn?.status === 'connected' ? (
+            {/* Connection Status Indicator */}
+            {connections.length === 0 ? (
+              <span className="inline-flex items-center text-xs font-medium text-gray-400">
+                未配置服务
+              </span>
+            ) : activeConn?.status === 'connected' ? (
               <span className="inline-flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <CheckCircleFilled className="mr-1 text-emerald-500 text-sm" />
                 已连通

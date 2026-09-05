@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { authApi } from '../api/auth';
-import { message } from '../utils/antMsg';
 
 export interface ServiceConnection {
   id: string;
@@ -49,22 +48,12 @@ const STORAGE_TOKEN_KEY = 'gorig_om_token';
 
 let inFlightConnectPromise: Promise<boolean> | null = null;
 
-const DEFAULT_CONNECTIONS: ServiceConnection[] = [
-  {
-    id: 'conn_default_local',
-    name: '本地服务 (Local)',
-    serverUrl: 'http://127.0.0.1:9617',
-    omKey: 'test123456',
-    status: 'disconnected',
-  },
-];
-
 const loadSavedConnections = (): ServiceConnection[] => {
   try {
     const raw = localStorage.getItem(STORAGE_CONNECTIONS_KEY);
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed.map((c) => ({
           ...c,
           status: 'disconnected',
@@ -74,10 +63,13 @@ const loadSavedConnections = (): ServiceConnection[] => {
   } catch (e) {
     console.error('Failed to load saved connections', e);
   }
-  return DEFAULT_CONNECTIONS;
+  return [];
 };
 
 const loadSavedActiveId = (connections: ServiceConnection[]): string => {
+  if (!connections || connections.length === 0) {
+    return '';
+  }
   try {
     const saved = localStorage.getItem(STORAGE_ACTIVE_ID_KEY);
     if (saved && connections.some((c) => c.id === saved)) {
@@ -86,7 +78,7 @@ const loadSavedActiveId = (connections: ServiceConnection[]): string => {
   } catch (e) {
     console.error('Failed to load saved active connection ID', e);
   }
-  return connections[0]?.id || 'conn_default_local';
+  return connections[0]?.id || '';
 };
 
 const saveConnections = (connections: ServiceConnection[]) => {
@@ -276,13 +268,26 @@ export const useAuthStore = create<AuthState>((set, get) => {
 
     deleteConnection: async (id: string) => {
       const { connections, activeId } = get();
-      if (connections.length <= 1) {
-        message.warning('至少需要保留一个服务连接配置');
-        return;
-      }
-
       const next = connections.filter((c) => c.id !== id);
       saveConnections(next);
+
+      if (next.length === 0) {
+        saveActiveId('');
+        try {
+          localStorage.removeItem(`${STORAGE_TOKEN_KEY}_${id}`);
+          localStorage.removeItem(STORAGE_TOKEN_KEY);
+        } catch {
+          // ignore
+        }
+        set({
+          connections: [],
+          activeId: '',
+          serverUrl: '',
+          token: null,
+          isConnected: false,
+        });
+        return;
+      }
 
       if (activeId === id) {
         const newActive = next[0];
@@ -294,10 +299,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
       }
     },
 
-    testConnection: async (serverUrl: string, omKey: string) => {
+    testConnection: async (serverUrl?: string | null, omKey?: string) => {
       try {
-        const cleanUrl = serverUrl.trim().replace(/\/+$/, '');
-        await authApi.connect(omKey, cleanUrl);
+        if (!omKey || !omKey.trim()) {
+          return { success: false, msg: '请输入服务访问秘钥 (om.key)' };
+        }
+        const cleanUrl = (serverUrl || '').trim().replace(/\/+$/, '');
+        await authApi.connect(omKey.trim(), cleanUrl);
         return { success: true };
       } catch (err: any) {
         return { success: false, msg: err.message || '连接失败' };

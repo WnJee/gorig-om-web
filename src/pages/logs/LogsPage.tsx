@@ -84,7 +84,6 @@ export const LogsPage: React.FC = () => {
         if (cats && cats.length > 0) {
           setMonitorCategory(cats[0]);
         }
-        handleSearch({ size: 100 });
       } catch (err) {
         console.error(err);
       }
@@ -111,7 +110,6 @@ export const LogsPage: React.FC = () => {
 
       const results = await logApi.searchLogs(opts);
       setSearchResults(results || []);
-      message.success(`已检索到 ${(results || []).length} 条日志`);
     } catch (err: any) {
       message.error(err.message || '检索日志失败');
     } finally {
@@ -489,7 +487,7 @@ export const LogsPage: React.FC = () => {
             <Form
               form={searchForm}
               onFinish={handleSearch}
-              initialValues={{ size: 100 }}
+              initialValues={{ size: 100, timeRange: [dayjs().subtract(10, 'minute'), dayjs()] }}
               className="space-y-3"
             >
               {/* Row 1: Primary Search & Actions (12 Columns Total) */}
@@ -539,7 +537,8 @@ export const LogsPage: React.FC = () => {
                       format="YYYY-MM-DD HH:mm:ss"
                       placeholder={['开始时间', '结束时间']}
                       presets={[
-                        { label: '最近 15 分钟', value: [dayjs().subtract(15, 'minute'), dayjs()] },
+                        { label: '最近 10 分钟', value: [dayjs().subtract(10, 'minute'), dayjs()] },
+                        { label: '最近 30 分钟', value: [dayjs().subtract(30, 'minute'), dayjs()] },
                         { label: '最近 1 小时', value: [dayjs().subtract(1, 'hour'), dayjs()] },
                         { label: '今天', value: [dayjs().startOf('day'), dayjs().endOf('day')] },
                         { label: '最近 3 天', value: [dayjs().subtract(3, 'day'), dayjs()] },
@@ -630,8 +629,10 @@ export const LogsPage: React.FC = () => {
                   <Button
                     onClick={() => {
                       searchForm.resetFields();
-                      searchForm.setFieldsValue({ size: 100 });
-                      handleSearch({ size: 100 });
+                      searchForm.setFieldsValue({
+                        size: 100,
+                        timeRange: [dayjs().subtract(10, 'minute'), dayjs()],
+                      });
                     }}
                     icon={<ReloadOutlined />}
                     className="h-9 px-3 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 border-gray-200 dark:border-slate-700 hover:bg-gray-50 transition"

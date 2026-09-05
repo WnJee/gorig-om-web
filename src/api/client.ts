@@ -96,8 +96,8 @@ apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     const { serverUrl } = useAuthStore.getState();
 
-    // If a custom server URL is set, prepend it to relative URLs
-    if (serverUrl && config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
+    // If config.baseURL is not already explicitly set and a server URL exists, prepend it to relative URLs
+    if (!config.baseURL && serverUrl && config.url && !config.url.startsWith('http://') && !config.url.startsWith('https://')) {
       config.baseURL = serverUrl;
     }
 
@@ -133,7 +133,9 @@ apiClient.interceptors.response.use(
         return res.data;
       } else {
         const errorMsg = res.msg || '操作失败';
-        message.error(errorMsg);
+        if (!response.config?.url?.includes('/om/auth/connect')) {
+          message.error(errorMsg);
+        }
         return Promise.reject(new Error(errorMsg));
       }
     }
@@ -169,7 +171,9 @@ apiClient.interceptors.response.use(
     }
 
     let errorMsg = resData?.msg || error.message || '网络请求错误';
-    message.error(errorMsg);
+    if (!config?.url?.includes('/om/auth/connect')) {
+      message.error(errorMsg);
+    }
 
     return Promise.reject(new Error(errorMsg));
   }
