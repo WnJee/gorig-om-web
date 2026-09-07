@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Table, Typography, Space, Button, Alert, Tag, Modal, Tabs } from 'antd';
+import { Card, Table, Space, Button, Alert, Tag, Modal, Tabs } from 'antd';
 import {
   ReloadOutlined,
   WarningOutlined,
   FileSearchOutlined,
   CheckCircleOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
 import { statApi } from '../../api/stat';
 import { BigObjRank, LeakEvent, PageTimeItem } from '../../types';
 import { QuickRange, TimeRangeSelector } from '../../components/TimeRangeSelector';
+import { PageHeader } from '../../components/PageHeader';
 import { formatBytes, formatChartTime, formatNumber, formatTime } from '../../utils/format';
 import { useAppStore } from '../../stores/useAppStore';
 
-const { Title } = Typography;
 
 export interface RuntimeStatPageProps {
   isModal?: boolean;
@@ -287,9 +288,10 @@ export const RuntimeStatPage: React.FC<RuntimeStatPageProps> = ({
       render: (_: any, r: LeakEvent) => (
         <Button
           type="link"
-          size="small"
+          size="middle"
           icon={<FileSearchOutlined />}
           onClick={() => setSelectedLeak(r)}
+          className="text-xs font-medium"
         >
           查看泄漏调用链
         </Button>
@@ -351,7 +353,13 @@ export const RuntimeStatPage: React.FC<RuntimeStatPageProps> = ({
               showIcon
               icon={<WarningOutlined />}
               action={
-                <Button size="small" danger onClick={() => setSelectedLeak(latestLeak)}>
+                <Button
+                  size="middle"
+                  danger
+                  icon={<FileSearchOutlined />}
+                  onClick={() => setSelectedLeak(latestLeak)}
+                  className="rounded-lg text-xs font-medium"
+                >
                   查看详情
                 </Button>
               }
@@ -397,22 +405,24 @@ export const RuntimeStatPage: React.FC<RuntimeStatPageProps> = ({
     <div className="space-y-6">
       {!isModal ? (
         <>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <Title level={4} className="!mb-1 text-gray-800 dark:text-white">
-                协程与内存诊断
-              </Title>
-              <span className="text-xs text-gray-500">
-                监控 Go 运行时 Goroutine 协程暴涨趋势，解析 Heap Profile 采样内存大对象 Top50 与 GC 窗口内存泄漏
-              </span>
-            </div>
-            <Space>
-              <TimeRangeSelector onChange={handleRangeChange} defaultQuick="6h" />
-              <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
-                刷新
-              </Button>
-            </Space>
-          </div>
+          <PageHeader
+            icon={<DashboardOutlined />}
+            title="协程与内存诊断"
+            description="监控 Go 运行时 Goroutine 协程暴涨趋势，解析 Heap Profile 采样内存大对象 Top50 与 GC 窗口内存泄漏"
+            extra={
+              <Space size="middle">
+                <TimeRangeSelector onChange={handleRangeChange} defaultQuick="6h" />
+                <Button
+                  size="middle"
+                  icon={<ReloadOutlined className="text-base" />}
+                  onClick={refreshAll}
+                  className="text-sm font-medium rounded-lg h-9 px-4"
+                >
+                  刷新
+                </Button>
+              </Space>
+            }
+          />
 
           {/* Memory Leak Banner */}
           {latestLeak ? (
@@ -427,7 +437,13 @@ export const RuntimeStatPage: React.FC<RuntimeStatPageProps> = ({
               showIcon
               icon={<WarningOutlined />}
               action={
-                <Button size="small" danger onClick={() => setSelectedLeak(latestLeak)}>
+                <Button
+                  size="middle"
+                  danger
+                  icon={<FileSearchOutlined />}
+                  onClick={() => setSelectedLeak(latestLeak)}
+                  className="rounded-lg text-xs font-medium"
+                >
                   查看详情
                 </Button>
               }
@@ -507,9 +523,14 @@ export const RuntimeStatPage: React.FC<RuntimeStatPageProps> = ({
       ) : (
         <>
           <div className="flex justify-end mb-2">
-            <Space>
+            <Space size="middle">
               <TimeRangeSelector onChange={handleRangeChange} defaultQuick="6h" />
-              <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
+              <Button
+                size="middle"
+                icon={<ReloadOutlined />}
+                onClick={refreshAll}
+                className="text-sm font-medium rounded-lg h-9 px-4"
+              >
                 刷新
               </Button>
             </Space>

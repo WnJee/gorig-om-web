@@ -13,6 +13,7 @@ import {
   ThunderboltFilled,
   PlusOutlined,
   ApiOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
@@ -21,6 +22,7 @@ import { appApi } from '../../api/app';
 import { statApi } from '../../api/stat';
 import { ApiLatencySummary, PageTimeItem, ReStartLog, ResType, ResUsage } from '../../types';
 import { TimeRangeSelector } from '../../components/TimeRangeSelector';
+import { PageHeader } from '../../components/PageHeader';
 import { formatChartTime, formatLatency, formatMB, formatNumber, formatTime } from '../../utils/format';
 import { useAppStore } from '../../stores/useAppStore';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -393,55 +395,64 @@ export const DashboardPage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3 pb-2">
-      {/* 1. Top Bar: Uptime, Start Time, Source & Action Buttons */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg px-4 py-2.5 shadow-sm border border-gray-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-gray-600 dark:text-gray-300">
-          <div>
-            <span className="text-gray-400 mr-1.5">运行时长:</span>
-            <span className="font-semibold text-gray-900 dark:text-white font-mono">{uptimeString}</span>
+    <div className="space-y-3 pb-4">
+      {/* 1. Unified Page Header */}
+      <PageHeader
+        icon={<DashboardOutlined />}
+        title="系统概览"
+        description={
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 font-normal">
+            <div>
+              <span className="text-gray-400 mr-1">运行时长:</span>
+              <span className="font-semibold text-gray-800 dark:text-gray-200 font-mono">{uptimeString}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 mr-1">启动时间:</span>
+              <span className="font-mono">{startTimeDisplay}</span>
+            </div>
+            <div>
+              <span className="text-gray-400 mr-1">启动方式:</span>
+              <span
+                className="text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer hover:underline"
+                onClick={() => setAppModalOpen(true)}
+              >
+                {startSrcDisplay}
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="text-gray-400 mr-1.5">启动时间:</span>
-            <span className="font-mono text-gray-700 dark:text-gray-300">{startTimeDisplay}</span>
-          </div>
-          <div>
-            <span className="text-gray-400 mr-1.5">启动方式:</span>
-            <span className="text-indigo-600 dark:text-indigo-400 font-medium cursor-pointer hover:underline" onClick={() => setAppModalOpen(true)}>
-              {startSrcDisplay}
-            </span>
-          </div>
-        </div>
-
-        <Space size="small">
-          <Button
-            size="small"
-            onClick={() => setAppModalOpen(true)}
-            className="text-xs font-medium rounded-md px-3"
-          >
-            更多记录
-          </Button>
-
-          <Popconfirm
-            title="确定重启应用服务？"
-            description="将向当前进程发送 SIGTERM 执行平滑重载，守护脚本将重新启动应用。"
-            onConfirm={handleSystemRestart}
-            okText="立即重启"
-            cancelText="取消"
-            okButtonProps={{ danger: true, loading: restarting }}
-          >
+        }
+        extra={
+          <Space size="middle">
             <Button
-              type="primary"
-              size="small"
-              icon={<SyncOutlined spin={restarting} />}
-              loading={restarting}
-              className="text-xs font-medium bg-amber-500 hover:bg-amber-600 border-amber-500 rounded-md px-3 shadow-sm"
+              size="middle"
+              icon={<HistoryOutlined className="text-base" />}
+              onClick={() => setAppModalOpen(true)}
+              className="text-sm font-medium rounded-lg h-9 px-4"
             >
-              重启系统
+              更多记录
             </Button>
-          </Popconfirm>
-        </Space>
-      </div>
+
+            <Popconfirm
+              title="确定重启应用服务？"
+              description="将向当前进程发送 SIGTERM 执行平滑重载，守护脚本将重新启动应用。"
+              onConfirm={handleSystemRestart}
+              okText="立即重启"
+              cancelText="取消"
+              okButtonProps={{ danger: true, loading: restarting }}
+            >
+              <Button
+                type="primary"
+                size="middle"
+                icon={<SyncOutlined spin={restarting} className="text-base" />}
+                loading={restarting}
+                className="text-sm font-medium bg-amber-500 hover:bg-amber-600 border-amber-500 rounded-lg h-9 px-4 shadow-sm"
+              >
+                重启系统
+              </Button>
+            </Popconfirm>
+          </Space>
+        }
+      />
 
       {/* 2. Three Core Resource Cards (CPU, 内存, 磁盘) - Height identical to Row 3 */}
       <Row gutter={[12, 12]} align="stretch" className="items-stretch">

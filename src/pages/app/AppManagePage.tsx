@@ -6,14 +6,16 @@ import {
   PoweroffOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
+  ControlOutlined,
 } from '@ant-design/icons';
 import { appApi } from '../../api/app';
 import { ReStartLog } from '../../types';
 import { StartSrcBadge } from '../../components/StatusBadge';
 import { CodeViewer } from '../../components/CodeViewer';
+import { PageHeader } from '../../components/PageHeader';
 import { formatTime } from '../../utils/format';
 
-const { Title, Paragraph } = Typography;
+const { Paragraph } = Typography;
 
 export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false }) => {
   const [loading, setLoading] = useState(false);
@@ -95,9 +97,10 @@ export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false
       render: (_: any, record: ReStartLog) => (
         <Button
           type="link"
-          size="small"
+          size="middle"
           icon={<FileTextOutlined />}
           onClick={() => setSelectedLog(record)}
+          className="text-xs font-medium"
         >
           查看完整日志
         </Button>
@@ -108,14 +111,11 @@ export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false
   return (
     <div className="space-y-6">
       {!isModal && (
-        <div>
-          <Title level={4} className="!mb-1 text-gray-800 dark:text-white">
-            应用生命周期管理
-          </Title>
-          <span className="text-xs text-gray-500">
-            管理 Gorig 宿主进程重启、停止，追踪历史启动记录与崩溃自愈日志
-          </span>
-        </div>
+        <PageHeader
+          icon={<ControlOutlined />}
+          title="应用生命周期管理"
+          description="管理 Gorig 宿主进程重启、停止，追踪历史启动记录与崩溃自愈日志"
+        />
       )}
 
       <Alert
@@ -151,9 +151,10 @@ export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false
             >
               <Button
                 type="primary"
+                size="middle"
                 icon={<ReloadOutlined />}
                 loading={actionLoading}
-                className="bg-amber-600 hover:bg-amber-500 border-none shadow-sm"
+                className="bg-amber-600 hover:bg-amber-500 border-none shadow-sm rounded-lg text-xs font-medium h-9 px-4"
               >
                 平滑重启应用
               </Button>
@@ -169,8 +170,10 @@ export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false
             >
               <Button
                 danger
+                size="middle"
                 icon={<PoweroffOutlined />}
                 loading={actionLoading}
+                className="rounded-lg text-xs font-medium h-9 px-4"
               >
                 停止应用进程
               </Button>
@@ -182,7 +185,12 @@ export const AppManagePage: React.FC<{ isModal?: boolean }> = ({ isModal = false
       <Card
         title={<span className="text-sm font-semibold">进程重启历史与自愈日志</span>}
         extra={
-          <Button icon={<ReloadOutlined />} size="small" onClick={() => fetchLogs(page, pageSize)}>
+          <Button
+            icon={<ReloadOutlined />}
+            size="middle"
+            onClick={() => fetchLogs(page, pageSize)}
+            className="rounded-lg text-xs font-medium"
+          >
             刷新记录
           </Button>
         }

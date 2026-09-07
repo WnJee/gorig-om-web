@@ -21,6 +21,9 @@ import {
   DeleteOutlined,
   LinkOutlined,
   KeyOutlined,
+  SwapOutlined,
+  CloseOutlined,
+  CheckOutlined,
 } from "@ant-design/icons";
 import { useAuthStore, ServiceConnection } from "../../stores/useAuthStore";
 import { message } from "../../utils/antMsg";
@@ -170,20 +173,20 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
       render: (name: string, record: ServiceConnection) => {
         const isActive = record.id === activeId;
         return (
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold text-gray-900 dark:text-white text-sm">
+          <div className="min-w-[220px]">
+            <div className="flex items-center space-x-2 whitespace-nowrap">
+              <span className="font-semibold text-gray-900 dark:text-white text-sm whitespace-nowrap">
                 {name}
               </span>
               {isActive && (
-                <Tag color="success" icon={<CheckCircleOutlined />}>
+                <Tag color="success" icon={<CheckCircleOutlined />} className="!m-0 whitespace-nowrap">
                   当前使用
                 </Tag>
               )}
             </div>
             <div className="text-xs text-gray-400 mt-0.5 flex items-center">
-              <LinkOutlined className="mr-1 text-[11px]" />
-              {record.serverUrl || "本地代理 (同源)"}
+              <LinkOutlined className="mr-1 text-[11px] flex-shrink-0" />
+              <span className="truncate font-mono">{record.serverUrl || "本地代理 (同源)"}</span>
             </div>
           </div>
         );
@@ -193,31 +196,31 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
       title: "连接状态",
       dataIndex: "status",
       key: "status",
-      width: 140,
+      width: 120,
       render: (status: ServiceConnection["status"], record: ServiceConnection) => {
         if (status === "connected") {
-          return <Badge status="success" text={<span className="text-emerald-600 font-medium">正常运行</span>} />;
+          return <Badge status="success" text={<span className="text-emerald-600 font-medium whitespace-nowrap">正常运行</span>} />;
         }
         if (status === "connecting") {
-          return <Badge status="processing" text={<span className="text-blue-500">连接中...</span>} />;
+          return <Badge status="processing" text={<span className="text-blue-500 whitespace-nowrap">连接中...</span>} />;
         }
         if (status === "failed") {
           return (
             <Tooltip title={record.errorMsg || "认证或网络错误"}>
-              <Badge status="error" text={<span className="text-rose-600 cursor-pointer">连接失败</span>} />
+              <Badge status="error" text={<span className="text-rose-600 cursor-pointer whitespace-nowrap">连接失败</span>} />
             </Tooltip>
           );
         }
-        return <Badge status="default" text={<span className="text-gray-400">未连接</span>} />;
+        return <Badge status="default" text={<span className="text-gray-400 whitespace-nowrap">未连接</span>} />;
       },
     },
     {
       title: "访问密钥",
       dataIndex: "omKey",
       key: "omKey",
-      width: 130,
+      width: 120,
       render: (key: string) => (
-        <span className="font-mono text-xs text-gray-500">
+        <span className="font-mono text-xs text-gray-500 whitespace-nowrap">
           <KeyOutlined className="mr-1 text-gray-400" />
           {key ? key.substring(0, 3) + "****" : "-"}
         </span>
@@ -226,7 +229,7 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
     {
       title: "操作",
       key: "action",
-      width: 220,
+      width: 270,
       render: (_: any, record: ServiceConnection) => {
         const isActive = record.id === activeId;
         return (
@@ -234,18 +237,21 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
             {!isActive && (
               <Button
                 type="primary"
-                size="small"
+                size="middle"
+                icon={<SwapOutlined />}
                 loading={switchingId === record.id}
                 onClick={() => handleSwitch(record.id)}
+                className="rounded-lg text-xs font-medium"
               >
                 切换连接
               </Button>
             )}
 
             <Button
-              size="small"
+              size="middle"
               icon={<EditOutlined />}
               onClick={() => handleOpenEdit(record)}
+              className="rounded-lg text-xs font-medium"
             >
               编辑
             </Button>
@@ -260,9 +266,12 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
             >
               <Button
                 danger
-                size="small"
+                size="middle"
                 icon={<DeleteOutlined />}
-              />
+                className="rounded-lg text-xs font-medium"
+              >
+                删除
+              </Button>
             </Popconfirm>
           </Space>
         );
@@ -346,16 +355,22 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
               icon={<ThunderboltOutlined />}
               loading={testLoading}
               onClick={handleTestInForm}
+              size="middle"
+              className="rounded-lg"
             >
               测试连通性
             </Button>
 
             <Space>
-              <Button onClick={onClose}>取消</Button>
+              <Button icon={<CloseOutlined />} onClick={onClose} size="middle" className="rounded-lg">
+                取消
+              </Button>
               <Button
                 type="primary"
+                icon={<CheckOutlined />}
                 htmlType="submit"
-                className="bg-indigo-600 hover:bg-indigo-700"
+                size="middle"
+                className="bg-indigo-600 hover:bg-indigo-700 rounded-lg"
               >
                 保存并立即连接
               </Button>
@@ -376,7 +391,7 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
       }
       open={open}
       onCancel={onClose}
-      width={780}
+      width={860}
       footer={null}
       destroyOnHidden
     >
@@ -395,7 +410,7 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
             icon={<PlusOutlined />}
             size="middle"
             onClick={handleOpenAdd}
-            className="bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs"
+            className="bg-indigo-600 hover:bg-indigo-700 rounded-lg text-xs font-medium"
           >
             添加新服务
           </Button>
@@ -470,16 +485,22 @@ export const ConnectionManagerModal: React.FC<ConnectionManagerModalProps> = ({
                 icon={<ThunderboltOutlined />}
                 loading={testLoading}
                 onClick={handleTestInForm}
+                size="middle"
+                className="rounded-lg"
               >
                 测试连通性
               </Button>
 
               <Space>
-                <Button onClick={() => setFormOpen(false)}>取消</Button>
+                <Button icon={<CloseOutlined />} onClick={() => setFormOpen(false)} size="middle" className="rounded-lg">
+                  取消
+                </Button>
                 <Button
                   type="primary"
+                  icon={<CheckOutlined />}
                   htmlType="submit"
-                  className="bg-indigo-600 hover:bg-indigo-700"
+                  size="middle"
+                  className="bg-indigo-600 hover:bg-indigo-700 rounded-lg"
                 >
                   {editingConn ? "保存修改" : "保存并立即连接"}
                 </Button>

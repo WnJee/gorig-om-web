@@ -4,6 +4,7 @@ import {
   Steps,
   Button,
   Input,
+  InputNumber,
   Select,
   Switch,
   Space,
@@ -22,6 +23,9 @@ import {
   KeyOutlined,
   CheckCircleOutlined,
   RocketOutlined,
+  LeftOutlined,
+  RightOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { deployApi } from '../../api/deploy';
 import { EnvVersion, OtherRepo, SshKey, TaskOptions } from '../../types';
@@ -57,6 +61,9 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
   const [branch, setBranch] = useState('');
   const [otherRepos, setOtherRepos] = useState<OtherRepo[]>([]);
   const [autoTrigger, setAutoTrigger] = useState(false);
+  const [healthCheckUrl, setHealthCheckUrl] = useState('');
+  const [healthCheckTimeout, setHealthCheckTimeout] = useState(30);
+  const [autoRollback, setAutoRollback] = useState(true);
 
   // Loading States
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
@@ -79,6 +86,9 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
       setBranch(initialConfig.branch || '');
       setOtherRepos(initialConfig.otherRepos || []);
       setAutoTrigger(initialConfig.autoTrigger ?? false);
+      setHealthCheckUrl(initialConfig.healthCheckUrl || '');
+      setHealthCheckTimeout(initialConfig.healthCheckTimeout || 30);
+      setAutoRollback(initialConfig.autoRollback ?? true);
 
       if (initialConfig.repo) {
         fetchBranchList(initialConfig.repo);
@@ -93,6 +103,9 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
     } else {
       setBranch('');
       setBranchOptions([]);
+      setHealthCheckUrl('');
+      setHealthCheckTimeout(30);
+      setAutoRollback(true);
     }
   }, [initialConfig, open]);
 
@@ -288,6 +301,9 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
         branch,
         otherRepos: otherRepos.filter((r) => r.dir && r.repo),
         autoTrigger,
+        healthCheckUrl: healthCheckUrl.trim(),
+        healthCheckTimeout: Number(healthCheckTimeout) || 30,
+        autoRollback,
       };
 
       await deployApi.saveTaskConfig(configPayload);
@@ -346,10 +362,11 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                 ) : (
                   <Button
                     type="primary"
-                    size="small"
+                    size="middle"
+                    icon={<DownloadOutlined />}
                     loading={installingGit}
                     onClick={handleInstallGit}
-                    className="bg-indigo-600 hover:bg-indigo-500"
+                    className="bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium"
                   >
                     一键安装 Git
                   </Button>
@@ -370,10 +387,11 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                 ) : (
                   <Button
                     type="primary"
-                    size="small"
+                    size="middle"
+                    icon={<DownloadOutlined />}
                     loading={installingGo}
                     onClick={handleInstallGo}
-                    className="bg-indigo-600 hover:bg-indigo-500"
+                    className="bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium"
                   >
                     一键安装 Go
                   </Button>
@@ -395,6 +413,8 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
             <div className="flex items-center justify-end pt-4 border-t border-gray-100 dark:border-slate-800">
               <Button
                 type="primary"
+                size="middle"
+                icon={<RightOutlined />}
                 onClick={() => setCurrentStep(1)}
                 className="h-9 px-6 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium"
               >
@@ -414,10 +434,10 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                 </span>
                 <Space size="small">
                   <Button
-                    size="small"
+                    size="middle"
                     icon={<CopyOutlined />}
                     onClick={handleCopySSHKey}
-                    className="text-xs"
+                    className="rounded-lg text-xs font-medium"
                   >
                     复制公钥
                   </Button>
@@ -429,10 +449,10 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                     cancelText="取消"
                   >
                     <Button
-                      size="small"
+                      size="middle"
                       icon={<KeyOutlined />}
                       loading={generatingKey}
-                      className="text-xs"
+                      className="rounded-lg text-xs font-medium"
                     >
                       重新生成
                     </Button>
@@ -440,30 +460,32 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                 </Space>
               </div>
 
-              <Input.TextArea
-                value={sshKey?.publicKey || '暂未生成 SSH 密钥，请点击右上角“重新生成”'}
-                readOnly
-                rows={4}
-                className="font-mono text-xs bg-gray-50 dark:bg-slate-900 border-gray-200 dark:border-slate-700 rounded-lg select-all"
-              />
+              <div className="bg-gray-50 dark:bg-slate-900 rounded-xl p-3 border border-gray-200 dark:border-slate-800">
+                <div className="text-xs font-mono text-gray-600 dark:text-gray-300 break-all select-all leading-relaxed">
+                  {sshKey?.publicKey || '尚未生成 SSH 公钥'}
+                </div>
+              </div>
             </div>
 
-            <div className="bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800/80 rounded-xl p-4 flex items-start gap-3">
-              <InfoCircleFilled className="text-cyan-500 text-xl flex-shrink-0 mt-0.5" />
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl p-4 flex items-start gap-3">
+              <InfoCircleFilled className="text-amber-500 text-xl flex-shrink-0 mt-0.5" />
               <div>
-                <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm">配置指引</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 space-y-1">
-                  <p>为了让部署服务器能够安全拉取私有代码，请将上方公钥配置到您的 Git 平台：</p>
-                  <p className="text-gray-500">
-                    • <strong>阿里云 Codeup</strong>：个人设置 ──► SSH 公钥 ──► 添加公钥<br />
-                    • <strong>GitHub / GitLab</strong>：Settings ──► SSH and GPG keys ──► New SSH Key
-                  </p>
+                <div className="font-semibold text-gray-800 dark:text-gray-100 text-sm">部署密钥使用方式</div>
+                <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 space-y-1 leading-relaxed">
+                  <p>1. 点击上方按钮复制服务器 SSH 公钥；</p>
+                  <p>2. 前往 Git 平台（GitHub / GitLab / 阿里云 Codeup / Gitee）仓库设置；</p>
+                  <p>3. 找到 <strong>Deploy Keys / 部署密钥</strong> 菜单，添加并粘贴该公钥（只需只读权限）；</p>
+                  <p>4. 添加成功后，勾选下方确认项并进入下一步。</p>
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 pt-2">
-              <Switch checked={sshKeyCopy} onChange={setSshKeyCopy} size="small" />
+              <Switch
+                checked={sshKeyCopy}
+                onChange={setSshKeyCopy}
+                className="bg-gray-300"
+              />
               <span className="text-xs text-gray-700 dark:text-gray-300">
                 我已将公钥添加至 Git 托管平台的 SSH Keys 中
               </span>
@@ -471,11 +493,18 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
 
             {/* Footer Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-800">
-              <Button onClick={() => setCurrentStep(0)} className="h-9 px-4 rounded-lg text-xs">
+              <Button
+                size="middle"
+                icon={<LeftOutlined />}
+                onClick={() => setCurrentStep(0)}
+                className="h-9 px-4 rounded-lg text-xs font-medium"
+              >
                 上一步
               </Button>
               <Button
                 type="primary"
+                size="middle"
+                icon={<RightOutlined />}
                 onClick={() => setCurrentStep(2)}
                 className="h-9 px-6 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium"
               >
@@ -503,9 +532,10 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
               />
               <Button
                 icon={<CheckOutlined />}
+                size="middle"
                 loading={checkingRepo}
                 onClick={handleRecheckRepo}
-                className="h-9 px-4 rounded-lg text-xs text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:bg-gray-50"
+                className="h-9 px-4 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:bg-gray-50"
               >
                 重新检测
               </Button>
@@ -530,9 +560,10 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
               />
               <Button
                 icon={<ReloadOutlined />}
+                size="middle"
                 loading={fetchingBranches}
                 onClick={handleRefreshBranches}
-                className="h-9 px-4 rounded-lg text-xs text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:bg-gray-50"
+                className="h-9 px-4 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:bg-gray-50"
               >
                 刷新列表
               </Button>
@@ -546,8 +577,9 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                 </span>
                 <Button
                   icon={<PlusOutlined />}
+                  size="middle"
                   onClick={handleAddOtherRepo}
-                  className="h-8 px-3 rounded-lg text-xs text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700"
+                  className="h-9 px-3.5 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700"
                 >
                   添加依赖
                 </Button>
@@ -603,10 +635,13 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                       <Button
                         type="text"
                         danger
-                        icon={<DeleteOutlined className="text-rose-500 text-base" />}
+                        size="middle"
+                        icon={<DeleteOutlined className="text-rose-500 text-sm" />}
                         onClick={() => removeOtherRepo(idx)}
-                        className="h-9 w-9 flex items-center justify-center p-0 rounded-lg hover:bg-rose-50"
-                      />
+                        className="h-9 px-3 flex items-center justify-center rounded-lg hover:bg-rose-50 text-xs font-medium"
+                      >
+                        删除
+                      </Button>
                     </div>
                   ))
                 )}
@@ -632,11 +667,18 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
 
             {/* Footer Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-800">
-              <Button onClick={() => setCurrentStep(1)} className="h-9 px-4 rounded-lg text-xs">
+              <Button
+                size="middle"
+                icon={<LeftOutlined />}
+                onClick={() => setCurrentStep(1)}
+                className="h-9 px-4 rounded-lg text-xs font-medium"
+              >
                 上一步
               </Button>
               <Button
                 type="primary"
+                size="middle"
+                icon={<RightOutlined />}
                 onClick={() => {
                   if (!repo.trim()) {
                     message.warning('请先输入 Git 仓库地址');
@@ -666,6 +708,55 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                   </p>
                 </div>
                 <Switch checked={autoTrigger} onChange={setAutoTrigger} />
+              </div>
+            </div>
+
+            {/* Health Check Probe & Auto Rollback Card */}
+            <div className="bg-gray-50 dark:bg-slate-800/60 p-4 rounded-xl border border-gray-100 dark:border-slate-800 space-y-3">
+              <div>
+                <h4 className="font-bold text-sm text-gray-800 dark:text-white flex items-center space-x-1.5">
+                  <span>发布健康探针与自动回滚</span>
+                  <Tag color="processing" className="text-[10px]">高可用防护</Tag>
+                </h4>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  服务启动后，系统将自动探测健康端点。若在指定时间内未能通过检查，自动执行回滚并推送告警。
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                <div className="md:col-span-2 space-y-1">
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    探针 URL / 相对路径 (可选):
+                  </label>
+                  <Input
+                    placeholder="例如: /healthz 或 http://127.0.0.1:19617/healthz (留空则直接判定成功)"
+                    value={healthCheckUrl}
+                    onChange={(e) => setHealthCheckUrl(e.target.value)}
+                    className="rounded-lg text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                    探针超时时长 (秒):
+                  </label>
+                  <InputNumber
+                    min={5}
+                    max={300}
+                    value={healthCheckTimeout}
+                    onChange={(val) => setHealthCheckTimeout(val || 30)}
+                    className="w-full rounded-lg text-xs"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 border-t border-gray-200/60 dark:border-slate-700/60">
+                <div>
+                  <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                    探针超时失败后自动执行 Rollback 回滚
+                  </span>
+                  <p className="text-[11px] text-gray-400">
+                    自动切换至上一次部署成功的可回滚版本，防止损坏版本持续阻断线上流量
+                  </p>
+                </div>
+                <Switch checked={autoRollback} onChange={setAutoRollback} />
               </div>
             </div>
 
@@ -701,16 +792,38 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                     )}
                   </div>
                 </div>
+                <div className="space-y-1">
+                  <span className="text-gray-400">健康检查探针:</span>
+                  <div className="font-mono text-gray-700 dark:text-gray-300">
+                    {healthCheckUrl ? `${healthCheckUrl} (${healthCheckTimeout}s)` : '未启用探针'}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-gray-400">探针失败自动回滚:</span>
+                  <div>
+                    {autoRollback ? (
+                      <Tag color="blue">自动回滚已开启</Tag>
+                    ) : (
+                      <Tag color="default">未开启自动回滚</Tag>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Footer Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-slate-800">
-              <Button onClick={() => setCurrentStep(2)} className="h-9 px-4 rounded-lg text-xs">
+              <Button
+                size="middle"
+                icon={<LeftOutlined />}
+                onClick={() => setCurrentStep(2)}
+                className="h-9 px-4 rounded-lg text-xs font-medium"
+              >
                 上一步
               </Button>
               <Button
                 type="primary"
+                size="middle"
                 loading={saving}
                 icon={<RocketOutlined />}
                 onClick={handleSaveAll}

@@ -56,7 +56,7 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
 
   return (
     <Space wrap>
-      <Radio.Group value={quick} onChange={handleQuickChange} size="small" buttonStyle="solid">
+      <Radio.Group value={quick} onChange={handleQuickChange} size="middle" buttonStyle="solid">
         <Radio.Button value="15m">15分钟</Radio.Button>
         <Radio.Button value="1h">1小时</Radio.Button>
         <Radio.Button value="6h">6小时</Radio.Button>
@@ -65,11 +65,11 @@ export const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
       </Radio.Group>
       <RangePicker
         showTime
-        size="small"
+        size="middle"
         onChange={handleCustomRange}
         format="YYYY-MM-DD HH:mm"
         placeholder={['开始时间', '结束时间']}
-        className="w-64"
+        className="w-68 rounded-lg"
       />
     </Space>
   );

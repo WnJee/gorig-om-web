@@ -33,16 +33,20 @@ import {
   InfoCircleFilled,
   CheckOutlined,
   VerticalAlignBottomOutlined,
+  CloudUploadOutlined,
+  SaveOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { deployApi } from '../../api/deploy';
 import { EnvVersion, GoEnv, SshKey, TaskOptions, TaskRecord, TaskRecordLog } from '../../types';
 import { TaskStatusBadge } from '../../components/StatusBadge';
 import { CodeViewer } from '../../components/CodeViewer';
+import { PageHeader } from '../../components/PageHeader';
 import { formatTime } from '../../utils/format';
 import dayjs from 'dayjs';
 import { DeployConfigModal } from './DeployConfigModal';
 
-const { Title, Paragraph } = Typography;
+const { Paragraph } = Typography;
 
 function formatTaskDuration(start?: string | number, finish?: string | number, status?: string): string {
   if (!start) return '-';
@@ -394,9 +398,10 @@ export const DeployPage: React.FC = () => {
         <Space size="small">
           <Button
             type="link"
-            size="small"
+            size="middle"
             icon={<FileTextOutlined />}
             onClick={() => handleOpenDetail(r.id)}
+            className="text-xs font-medium"
           >
             日志
           </Button>
@@ -408,7 +413,7 @@ export const DeployPage: React.FC = () => {
               okText="确认取消"
               cancelText="返回"
             >
-              <Button type="link" danger size="small" icon={<StopOutlined />}>
+              <Button type="link" danger size="middle" icon={<StopOutlined />} className="text-xs font-medium">
                 取消
               </Button>
             </Popconfirm>
@@ -422,7 +427,7 @@ export const DeployPage: React.FC = () => {
               okText="确认回滚"
               cancelText="取消"
             >
-              <Button type="link" size="small" icon={<RollbackOutlined />} className="text-amber-600">
+              <Button type="link" size="middle" icon={<RollbackOutlined />} className="text-amber-600 text-xs font-medium">
                 回滚
               </Button>
             </Popconfirm>
@@ -433,34 +438,42 @@ export const DeployPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <Title level={4} className="!mb-1 text-gray-800 dark:text-white">
-            CI/CD 自动化部署流水线
-          </Title>
-          <span className="text-xs text-gray-500">
-            涵盖 Git / Go 编译环境管理、SSH Key 密钥、自动化拉取代码、跨平台构建产物、平滑重启与秒级回滚
-          </span>
-        </div>
-        <Space>
-          <Button
-            type="primary"
-            icon={<PlayCircleOutlined />}
-            onClick={handleStartTask}
-            className="bg-indigo-600 hover:bg-indigo-500 rounded-lg h-9 text-xs font-medium shadow-sm"
-          >
-            立即触发部署
-          </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => fetchTasks(tasksPage, tasksSize)}
-            className="rounded-lg h-9 text-xs text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700"
-          >
-            刷新
-          </Button>
-        </Space>
-      </div>
+    <div className="space-y-3 pb-4">
+      {/* 1. Unified Page Header */}
+      <PageHeader
+        icon={<CloudUploadOutlined />}
+        title="CI/CD 自动化部署流水线"
+        description="涵盖 Git / Go 编译环境管理、SSH 密钥鉴权、自动化构建产物、平滑重启与秒级回滚"
+        extra={
+          <Space size="middle">
+            <Button
+              type="primary"
+              size="middle"
+              icon={<PlayCircleOutlined className="text-base" />}
+              onClick={handleStartTask}
+              className="bg-indigo-600 hover:!bg-indigo-700 text-sm font-medium rounded-lg h-9 px-4 shadow-sm"
+            >
+              立即触发部署
+            </Button>
+            <Button
+              size="middle"
+              icon={<SettingOutlined className="text-base" />}
+              onClick={() => setConfigModalOpen(true)}
+              className="text-sm font-medium rounded-lg h-9 px-4"
+            >
+              部署配置向导
+            </Button>
+            <Button
+              size="middle"
+              icon={<ReloadOutlined className="text-base" />}
+              onClick={() => fetchTasks(tasksPage, tasksSize)}
+              className="text-sm font-medium rounded-lg h-9 px-3.5"
+            >
+              刷新
+            </Button>
+          </Space>
+        }
+      />
 
       <Card className="rounded-xl shadow-sm border border-gray-100 dark:border-slate-800">
         <Tabs
@@ -636,7 +649,7 @@ export const DeployPage: React.FC = () => {
                                 : ({ otherRepos: [{ dir: '', repo: '', branch: '' }] } as any)
                             );
                           }}
-                          className="h-8 px-3 rounded-lg text-xs text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700"
+                          className="h-9 px-3.5 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 border-gray-200 dark:border-slate-700"
                         >
                           添加依赖
                         </Button>
@@ -652,7 +665,7 @@ export const DeployPage: React.FC = () => {
                           taskConfig.otherRepos.map((item, idx) => (
                             <div
                               key={idx}
-                              className="flex items-center gap-2 p-2 bg-white dark:bg-slate-900 rounded-lg border border-gray-100 dark:border-slate-800"
+                              className="flex items-center gap-2 p-2.5 bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-200/70 dark:border-slate-700/70"
                             >
                               <Input
                                 value={item.dir}
@@ -663,8 +676,8 @@ export const DeployPage: React.FC = () => {
                                     prev ? { ...prev, otherRepos: updated } : null
                                   );
                                 }}
-                                placeholder="二方库目录名 (如 next19-core)"
-                                className="w-44 h-9 rounded-lg text-xs font-mono"
+                                placeholder="本地依赖目录 (例如 ../gorig-om)"
+                                className="w-56 h-9 rounded-lg text-xs font-mono"
                               />
                               <Input
                                 value={item.repo}
@@ -680,7 +693,7 @@ export const DeployPage: React.FC = () => {
                                     fetchOtherRepoBranches(e.target.value.trim(), idx);
                                   }
                                 }}
-                                placeholder="二方库 Git 仓库地址"
+                                placeholder="Git 仓库地址 (SSH 或 HTTPS)"
                                 className="flex-1 h-9 rounded-lg text-xs font-mono"
                               />
                               <Select
@@ -710,7 +723,7 @@ export const DeployPage: React.FC = () => {
                               <Button
                                 type="text"
                                 danger
-                                icon={<DeleteOutlined className="text-rose-500 text-base" />}
+                                icon={<DeleteOutlined className="text-rose-500 text-sm" />}
                                 onClick={() => {
                                   const updated = (taskConfig.otherRepos || []).filter(
                                     (_, i) => i !== idx
@@ -719,8 +732,10 @@ export const DeployPage: React.FC = () => {
                                     prev ? { ...prev, otherRepos: updated } : null
                                   );
                                 }}
-                                className="h-9 w-9 flex items-center justify-center p-0 rounded-lg hover:bg-rose-50"
-                              />
+                                className="h-9 px-3 flex items-center justify-center rounded-lg hover:bg-rose-50 text-xs font-medium"
+                              >
+                                删除
+                              </Button>
                             </div>
                           ))
                         )}
@@ -762,6 +777,7 @@ export const DeployPage: React.FC = () => {
 
                       <Button
                         type="primary"
+                        icon={<SaveOutlined />}
                         loading={configLoading}
                         onClick={async () => {
                           if (taskConfig) {
@@ -807,12 +823,14 @@ export const DeployPage: React.FC = () => {
                           {!gitStatus?.installed && (
                             <Button
                               type="primary"
-                              size="small"
+                              size="middle"
+                              icon={<DownloadOutlined />}
                               onClick={async () => {
                                 message.loading('正在安装 Git...', 2);
                                 await deployApi.installGit();
                                 fetchEnvironment();
                               }}
+                              className="rounded-lg text-xs font-medium"
                             >
                               一键自动安装 Git
                             </Button>
@@ -844,12 +862,14 @@ export const DeployPage: React.FC = () => {
                           {!goStatus?.installed && (
                             <Button
                               type="primary"
-                              size="small"
+                              size="middle"
+                              icon={<DownloadOutlined />}
                               onClick={async () => {
                                 message.loading('正在下载并安装 Go 官方 SDK...', 5);
                                 await deployApi.installGo();
                                 fetchEnvironment();
                               }}
+                              className="rounded-lg text-xs font-medium"
                             >
                               一键自动安装 Go 1.23
                             </Button>
@@ -873,7 +893,7 @@ export const DeployPage: React.FC = () => {
                       <Space>
                         <Button
                           icon={<CopyOutlined />}
-                          size="small"
+                          size="middle"
                           disabled={!sshKey?.publicKey}
                           onClick={() => {
                             if (sshKey?.publicKey) {
@@ -881,6 +901,7 @@ export const DeployPage: React.FC = () => {
                               message.success('SSH 公钥已复制');
                             }
                           }}
+                          className="rounded-lg text-xs font-medium"
                         >
                           复制公钥
                         </Button>
@@ -893,7 +914,7 @@ export const DeployPage: React.FC = () => {
                             fetchEnvironment();
                           }}
                         >
-                          <Button size="small" icon={<KeyOutlined />}>
+                          <Button size="middle" icon={<KeyOutlined />} className="rounded-lg text-xs font-medium">
                             重新生成密钥对
                           </Button>
                         </Popconfirm>
@@ -908,20 +929,22 @@ export const DeployPage: React.FC = () => {
                     extra={
                       <Space>
                         <Button
-                          size="small"
+                          size="middle"
                           icon={<PlusOutlined />}
                           onClick={() =>
                             setGoEnvs([...goEnvs, { key: '', value: '', default: false }])
                           }
+                          className="rounded-lg text-xs font-medium"
                         >
                           添加变量
                         </Button>
                         <Button
                           type="primary"
-                          size="small"
+                          size="middle"
+                          icon={<SaveOutlined />}
                           onClick={handleSaveGoEnvs}
                           loading={envLoading}
-                          className="bg-indigo-600"
+                          className="bg-indigo-600 rounded-lg text-xs font-medium"
                         >
                           保存变量配置
                         </Button>
@@ -977,19 +1000,22 @@ export const DeployPage: React.FC = () => {
                         {
                           title: '操作',
                           key: 'action',
-                          width: 80,
+                          width: 90,
                           render: (_, r, idx) =>
                             !r.default ? (
                               <Button
                                 type="text"
                                 danger
-                                size="small"
+                                size="middle"
                                 icon={<DeleteOutlined />}
                                 onClick={() => {
                                   const list = goEnvs.filter((_, i) => i !== idx);
                                   setGoEnvs(list);
                                 }}
-                              />
+                                className="rounded-lg text-xs font-medium"
+                              >
+                                删除
+                              </Button>
                             ) : null,
                         },
                       ]}
@@ -1018,18 +1044,18 @@ export const DeployPage: React.FC = () => {
             {selectedTask && (
               <Space size="small">
                 <Button
-                  size="small"
+                  size="middle"
                   icon={<VerticalAlignBottomOutlined />}
                   onClick={scrollToBottom}
-                  className="text-xs"
+                  className="rounded-lg text-xs font-medium"
                 >
                   滚至底部
                 </Button>
                 <Button
-                  size="small"
+                  size="middle"
                   icon={<CopyOutlined />}
                   onClick={handleCopyLogs}
-                  className="text-xs"
+                  className="rounded-lg text-xs font-medium"
                 >
                   复制日志
                 </Button>

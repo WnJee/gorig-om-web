@@ -31,10 +31,12 @@ import {
   FolderOutlined,
   FilterOutlined,
   BarsOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { logApi } from '../../api/log';
 import { ContextLogLine, LogLevel, MatchedRecord, SearchOptions } from '../../types';
 import { LogLevelBadge } from '../../components/StatusBadge';
+import { PageHeader } from '../../components/PageHeader';
 
 const { RangePicker } = DatePicker;
 
@@ -341,28 +343,29 @@ export const LogsPage: React.FC = () => {
     {
       title: '操作',
       key: 'action',
-      width: 110,
+      width: 170,
       fixed: 'right' as const,
       align: 'center' as const,
       render: (_: any, r: MatchedRecord) => (
         <Space size="small">
           <Button
             type="link"
-            size="small"
+            size="middle"
             icon={<CompassOutlined />}
             onClick={() => handleOpenNear(r.path, r.line, contextRange)}
             className="text-xs px-1 text-indigo-600 hover:text-indigo-500"
           >
             上下文
           </Button>
-          <Tooltip title="下载包含该行的原始日志文件">
-            <Button
-              type="text"
-              size="small"
-              icon={<DownloadOutlined />}
-              onClick={() => handleDownload(r.path)}
-            />
-          </Tooltip>
+          <Button
+            type="link"
+            size="middle"
+            icon={<DownloadOutlined />}
+            onClick={() => handleDownload(r.path)}
+            className="text-xs px-1 text-gray-600 hover:text-indigo-600"
+          >
+            下载
+          </Button>
         </Space>
       ),
     },
@@ -448,10 +451,10 @@ export const LogsPage: React.FC = () => {
           </div>
           <Button
             type="link"
-            size="small"
+            size="middle"
             icon={<CompassOutlined />}
             onClick={() => handleOpenNear(r.path, r.line, contextRange)}
-            className="text-xs p-0 h-auto text-indigo-600 hover:text-indigo-500"
+            className="text-xs p-0 h-auto text-indigo-600 hover:text-indigo-500 font-medium"
           >
             反查上下文
           </Button>
@@ -461,24 +464,25 @@ export const LogsPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-3">
-      {/* 1. Top Bar: Title & Mode Switcher in Single Compact Row */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-        <div className="flex items-center space-x-3">
-          <span className="font-bold text-base text-gray-800 dark:text-white">日志中心</span>
-          <span className="text-xs text-gray-400 hidden md:inline">
-            全量 JSONL 结构化检索、Trace 链跟踪、上下文反查与实时流
-          </span>
-        </div>
-        <Segmented
-          value={activeTab}
-          onChange={(val) => setActiveTab(val as 'search' | 'monitor')}
-          options={[
-            { label: '日志检索与分析', value: 'search', icon: <SearchOutlined /> },
-            { label: 'SSE 实时监控流', value: 'monitor', icon: <PlayCircleOutlined /> },
-          ]}
-        />
-      </div>
+    <div className="space-y-3 pb-4">
+      {/* 1. Unified Page Header */}
+      <PageHeader
+        icon={<FileTextOutlined />}
+        title="日志中心"
+        description="全量 JSONL 结构化检索、Trace 链路追踪、上下文反查与 SSE 实时流"
+        extra={
+          <Segmented
+            size="middle"
+            className="p-1 text-sm font-medium"
+            value={activeTab}
+            onChange={(val) => setActiveTab(val as 'search' | 'monitor')}
+            options={[
+              { label: '日志检索与分析', value: 'search', icon: <SearchOutlined /> },
+              { label: 'SSE 实时监控流', value: 'monitor', icon: <PlayCircleOutlined /> },
+            ]}
+          />
+        }
+      />
 
       {activeTab === 'search' ? (
         <div className="space-y-3">
@@ -815,10 +819,10 @@ export const LogsPage: React.FC = () => {
               </Tag>
             </div>
             <Button
-              size="small"
+              size="middle"
               icon={<CopyOutlined />}
               onClick={handleCopyTraceId}
-              className="text-xs"
+              className="rounded-lg text-xs font-medium"
             >
               复制 ID
             </Button>
@@ -903,11 +907,11 @@ export const LogsPage: React.FC = () => {
             </span>
             {selectedNearTarget && (
               <Button
-                size="small"
+                size="middle"
                 type="link"
                 icon={<DownloadOutlined />}
                 onClick={() => handleDownload(selectedNearTarget.path)}
-                className="text-xs p-0 h-auto"
+                className="text-xs p-0 h-auto font-medium"
               >
                 下载完整文件
               </Button>

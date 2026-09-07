@@ -4,7 +4,6 @@ import {
   Row,
   Col,
   Table,
-  Typography,
   Space,
   Button,
   Input,
@@ -35,10 +34,10 @@ import {
 import { MetricCard } from '../../components/MetricCard';
 import { QuickRange, TimeRangeSelector } from '../../components/TimeRangeSelector';
 import { CodeViewer } from '../../components/CodeViewer';
+import { PageHeader } from '../../components/PageHeader';
 import { formatChartTime, formatLatency, formatNumber, formatTime } from '../../utils/format';
 import { useAppStore } from '../../stores/useAppStore';
 
-const { Title } = Typography;
 
 export const ApiStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false }) => {
   const [timeRange, setTimeRange] = useState<[number, number]>([
@@ -301,9 +300,10 @@ export const ApiStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false }
       render: (_: any, r: ApiLatencyRank) => (
         <Button
           type="link"
-          size="small"
+          size="middle"
           icon={<EyeOutlined />}
           onClick={() => handleOpenSample(r.method, r.uri)}
+          className="text-xs font-medium"
         >
           样本分析
         </Button>
@@ -366,27 +366,34 @@ export const ApiStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false }
   return (
     <div className="space-y-6">
       {!isModal ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <Title level={4} className="!mb-1 text-gray-800 dark:text-white">
-              API 统计与延迟分析
-            </Title>
-            <span className="text-xs text-gray-500">
-              基于分钟级桶与小时 Rollup 聚合分析 API 流量规模、慢请求率、5xx 错误与入/出参抽样
-            </span>
-          </div>
-          <Space>
-            <TimeRangeSelector onChange={handleRangeChange} />
-            <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
-              刷新
-            </Button>
-          </Space>
-        </div>
+        <PageHeader
+          icon={<ApiOutlined />}
+          title="API 统计与延迟分析"
+          description="基于分钟级桶与小时 Rollup 聚合分析 API 流量规模、慢请求率、5xx 错误与入/出参抽样"
+          extra={
+            <Space size="middle">
+              <TimeRangeSelector onChange={handleRangeChange} />
+              <Button
+                icon={<ReloadOutlined className="text-base" />}
+                onClick={refreshAll}
+                size="middle"
+                className="text-sm font-medium rounded-lg h-9 px-4"
+              >
+                刷新
+              </Button>
+            </Space>
+          }
+        />
       ) : (
         <div className="flex justify-end mb-2">
-          <Space>
+          <Space size="middle">
             <TimeRangeSelector onChange={handleRangeChange} />
-            <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={refreshAll}
+              size="middle"
+              className="text-sm font-medium rounded-lg h-9 px-4"
+            >
               刷新
             </Button>
           </Space>
@@ -498,8 +505,10 @@ export const ApiStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false }
             />
             <Button
               type="primary"
-              size="small"
+              size="middle"
+              icon={<SearchOutlined />}
               onClick={() => fetchTopRanks(timeRange, 1, pageSize)}
+              className="bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium h-9 px-4"
             >
               查询
             </Button>

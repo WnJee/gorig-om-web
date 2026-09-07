@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Button, Space, Select, Tooltip, theme } from 'antd';
-import { message } from '../utils/antMsg';
 import {
   DashboardOutlined,
   FileTextOutlined,
   CloudUploadOutlined,
-  ReloadOutlined,
   BulbOutlined,
   BulbFilled,
   ApiOutlined,
   CheckCircleFilled,
   ExclamationCircleFilled,
   LoadingOutlined,
+  BugOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -22,7 +22,6 @@ const { Header, Sider, Content } = Layout;
 
 export const MainLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [refreshLoading, setRefreshLoading] = useState(false);
   const [connModalOpen, setConnModalOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -51,14 +50,17 @@ export const MainLayout: React.FC = () => {
       icon: <CloudUploadOutlined />,
       label: '部署',
     },
+    {
+      key: '/diag',
+      icon: <BugOutlined />,
+      label: '性能诊断',
+    },
+    {
+      key: '/alert',
+      icon: <BellOutlined />,
+      label: '告警配置',
+    },
   ];
-
-  const handleManualRefresh = () => {
-    setRefreshLoading(true);
-    window.dispatchEvent(new CustomEvent('gorig_manual_refresh'));
-    message.success('已刷新最新监控数据');
-    setTimeout(() => setRefreshLoading(false), 500);
-  };
 
   // If no connections configured, auto pop up the add connection modal
   React.useEffect(() => {
@@ -110,27 +112,26 @@ export const MainLayout: React.FC = () => {
       <Layout>
         <Header
           style={{ background: colorBgContainer }}
-          className="h-14 px-5 flex items-center justify-between border-b border-gray-100 dark:border-slate-800 shadow-sm"
+          className="h-16 px-6 flex items-center justify-between border-b border-gray-100 dark:border-slate-800 shadow-sm"
         >
           {/* Left: Multi-service Connection Switcher */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1.5">
-              <span className="text-xs text-gray-400 font-medium hidden sm:inline">服务连接:</span>
+          <div className="flex items-center space-x-3.5">
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400 font-medium hidden sm:inline">服务连接:</span>
               <Select
-                size="small"
                 value={connections.length > 0 && activeId ? activeId : undefined}
                 placeholder="未配置服务"
                 onChange={(val) => switchConnection(val)}
-                className="w-56 text-xs"
+                className="w-64 sm:w-80"
                 popupMatchSelectWidth={false}
-                notFoundContent={<div className="p-2 text-xs text-gray-400 text-center">暂无可用连接</div>}
+                notFoundContent={<div className="p-3 text-sm text-gray-400 text-center">暂无可用连接</div>}
                 options={connections.map((c) => ({
                   value: c.id,
                   label: (
-                    <div className="flex items-center justify-between space-x-3 py-0.5">
-                      <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center justify-between space-x-4 py-1">
+                      <div className="flex items-center space-x-2">
                         <span
-                          className={`w-2 h-2 rounded-full ${
+                          className={`w-2.5 h-2.5 rounded-full ${
                             c.status === 'connected'
                               ? 'bg-emerald-500'
                               : c.status === 'connecting'
@@ -140,11 +141,11 @@ export const MainLayout: React.FC = () => {
                               : 'bg-gray-300'
                           }`}
                         />
-                        <span className="font-medium text-xs text-gray-800 dark:text-gray-200">
+                        <span className="font-semibold text-sm text-gray-800 dark:text-gray-200">
                           {c.name}
                         </span>
                       </div>
-                      <span className="text-[11px] text-gray-400 font-mono">
+                      <span className="text-xs text-gray-400 font-mono">
                         {c.serverUrl || '本地代理'}
                       </span>
                     </div>
@@ -155,62 +156,48 @@ export const MainLayout: React.FC = () => {
 
             {/* Connection Status Indicator */}
             {connections.length === 0 ? (
-              <span className="inline-flex items-center text-xs font-medium text-gray-400">
+              <span className="inline-flex items-center text-sm font-medium text-gray-400">
                 未配置服务
               </span>
             ) : activeConn?.status === 'connected' ? (
-              <span className="inline-flex items-center text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                <CheckCircleFilled className="mr-1 text-emerald-500 text-sm" />
+              <span className="inline-flex items-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <CheckCircleFilled className="mr-1.5 text-emerald-500 text-base" />
                 已连通
               </span>
             ) : activeConn?.status === 'connecting' ? (
-              <span className="inline-flex items-center text-xs font-medium text-blue-600 dark:text-blue-400">
-                <LoadingOutlined className="mr-1 text-blue-500 text-sm" />
+              <span className="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
+                <LoadingOutlined className="mr-1.5 text-blue-500 text-base" />
                 连接中
               </span>
             ) : activeConn?.status === 'failed' ? (
               <Tooltip title={activeConn.errorMsg || '无法连接该节点服务，请检查地址与秘钥'}>
-                <span className="inline-flex items-center text-xs font-medium text-rose-600 dark:text-rose-400 cursor-pointer">
-                  <ExclamationCircleFilled className="mr-1 text-rose-500 text-sm" />
+                <span className="inline-flex items-center text-sm font-medium text-rose-600 dark:text-rose-400 cursor-pointer">
+                  <ExclamationCircleFilled className="mr-1.5 text-rose-500 text-base" />
                   连接失败
                 </span>
               </Tooltip>
             ) : (
-              <span className="inline-flex items-center text-xs font-medium text-gray-400">
+              <span className="inline-flex items-center text-sm font-medium text-gray-400">
                 未连接
               </span>
             )}
 
             <Button
-              size="small"
               icon={<ApiOutlined />}
               onClick={() => setConnModalOpen(true)}
-              className="text-xs font-medium rounded-md"
+              className="text-sm font-medium rounded-lg h-9 px-3.5"
             >
               服务管理
             </Button>
           </div>
 
-          {/* Right: Only Manual Refresh & Theme Switch */}
+          {/* Right: Theme Switch Only */}
           <Space size="middle">
-            <Tooltip title="手动重新加载最新指标数据">
-              <Button
-                type="default"
-                size="small"
-                icon={<ReloadOutlined spin={refreshLoading} />}
-                loading={refreshLoading}
-                onClick={handleManualRefresh}
-                className="text-xs font-medium rounded-md text-gray-600 dark:text-gray-300"
-              >
-                刷新数据
-              </Button>
-            </Tooltip>
-
             <Tooltip title={appTheme === 'dark' ? '切换亮色模式' : '切换暗色模式'}>
               <Button
                 type="text"
-                size="middle"
-                icon={appTheme === 'dark' ? <BulbFilled className="text-amber-400" /> : <BulbOutlined />}
+                size="large"
+                icon={appTheme === 'dark' ? <BulbFilled className="text-amber-400 text-lg" /> : <BulbOutlined className="text-lg text-gray-600 dark:text-gray-300" />}
                 onClick={toggleTheme}
               />
             </Tooltip>

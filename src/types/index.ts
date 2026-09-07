@@ -222,6 +222,9 @@ export interface TaskOptions {
   branch: string;
   otherRepos?: OtherRepo[];
   autoTrigger: boolean;
+  healthCheckUrl?: string;
+  healthCheckTimeout?: number;
+  autoRollback?: boolean;
 }
 
 export type TaskStatus = 'waiting' | 'running' | 'success' | 'failed' | 'timeout' | 'canceled';
@@ -248,4 +251,63 @@ export interface TaskRecord extends TaskOptions {
   rbStatus: RollbackStatus;
   rb: boolean;
   rid?: string;
+}
+
+// Alert System
+export type ChannelType = 'feishu' | 'dingtalk' | 'wecom' | 'generic';
+export type AlertLevel = 'info' | 'warning' | 'critical';
+export type AlertType = 'crash' | 'mem_leak' | 'deploy_fail' | 'high_cpu' | 'high_disk' | 'high_goroutine' | 'test';
+
+export interface AlertConfig {
+  enabled: boolean;
+  channel: ChannelType;
+  webhookUrl: string;
+  secret?: string;
+  cooldownMin: number;
+  cpuThreshold: number;
+  memThreshold: number;
+  diskThreshold: number;
+  goroutineThreshold: number;
+  notifyOnCrash: boolean;
+  notifyOnDeployFail: boolean;
+  notifyOnMemLeak: boolean;
+}
+
+export interface AlertEvent {
+  type: AlertType;
+  level: AlertLevel;
+  title: string;
+  message: string;
+  details?: Record<string, any>;
+  timestamp: string;
+  hostName: string;
+}
+
+// Runtime Diagnostics
+export interface GoroutineStackFrame {
+  function: string;
+  file: string;
+  line: number;
+}
+
+export interface GoroutineInfo {
+  id: number;
+  state: string;
+  waitDuration?: string;
+  frames: GoroutineStackFrame[];
+}
+
+export interface GoroutineGroup {
+  count: number;
+  percentage: number;
+  state: string;
+  topFrame: GoroutineStackFrame;
+  frames: GoroutineStackFrame[];
+}
+
+export interface GoroutineClusterResult {
+  totalGoroutines: number;
+  totalGroups: number;
+  timestamp: string;
+  groups: GoroutineGroup[];
 }

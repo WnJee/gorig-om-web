@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Table, Typography, Space, Button, Tag, Modal } from 'antd';
+import { Card, Table, Space, Button, Tag, Modal } from 'antd';
 import {
   ReloadOutlined,
   SearchOutlined,
   FileTextOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import dayjs from 'dayjs';
@@ -11,11 +12,11 @@ import { useNavigate } from 'react-router-dom';
 import { statApi } from '../../api/stat';
 import { ErrSigRank, PageTimeItem } from '../../types';
 import { QuickRange, TimeRangeSelector } from '../../components/TimeRangeSelector';
+import { PageHeader } from '../../components/PageHeader';
 import { LogLevelBadge } from '../../components/StatusBadge';
 import { formatChartTime, formatNumber, formatTime } from '../../utils/format';
 import { useAppStore } from '../../stores/useAppStore';
 
-const { Title } = Typography;
 
 export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false }) => {
   const [timeRange, setTimeRange] = useState<[number, number]>([
@@ -195,23 +196,25 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
     {
       title: '操作',
       key: 'action',
-      width: 160,
+      width: 170,
       render: (_: any, r: ErrSigRank) => (
         <Space size="small">
           <Button
             type="link"
-            size="small"
+            size="middle"
             icon={<FileTextOutlined />}
             onClick={() => setSelectedSig(r)}
+            className="text-xs font-medium"
           >
             详情
           </Button>
           {r.sampleTrace && (
             <Button
-              type="text"
-              size="small"
+              type="link"
+              size="middle"
               icon={<SearchOutlined />}
               onClick={() => navigate('/logs')}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
             >
               溯源
             </Button>
@@ -224,27 +227,34 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
   return (
     <div className="space-y-6">
       {!isModal ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <Title level={4} className="!mb-1 text-gray-800 dark:text-white">
-              错误统计与签名追踪
-            </Title>
-            <span className="text-xs text-gray-500">
-              自动对异常日志进行正则归一化聚合（UUID/数字替换为问号），聚类生成错误签名并追踪首末频次
-            </span>
-          </div>
-          <Space>
-            <TimeRangeSelector onChange={handleRangeChange} />
-            <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
-              刷新
-            </Button>
-          </Space>
-        </div>
+        <PageHeader
+          icon={<CloseCircleOutlined />}
+          title="错误统计与签名追踪"
+          description="自动对异常日志进行正则归一化聚合（UUID/数字替换为问号），聚类生成错误签名并追踪首末频次"
+          extra={
+            <Space size="middle">
+              <TimeRangeSelector onChange={handleRangeChange} />
+              <Button
+                icon={<ReloadOutlined className="text-base" />}
+                onClick={refreshAll}
+                size="middle"
+                className="text-sm font-medium rounded-lg h-9 px-4"
+              >
+                刷新
+              </Button>
+            </Space>
+          }
+        />
       ) : (
         <div className="flex justify-end mb-2">
-          <Space>
+          <Space size="middle">
             <TimeRangeSelector onChange={handleRangeChange} />
-            <Button icon={<ReloadOutlined />} onClick={refreshAll} size="small">
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={refreshAll}
+              size="middle"
+              className="text-sm font-medium rounded-lg h-9 px-4"
+            >
               刷新
             </Button>
           </Space>

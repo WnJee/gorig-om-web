@@ -15,6 +15,8 @@ import { ApiStatPage } from './pages/stats/ApiStatPage';
 import { ErrorStatPage } from './pages/stats/ErrorStatPage';
 import { RuntimeStatPage } from './pages/stats/RuntimeStatPage';
 import { DeployPage } from './pages/deploy/DeployPage';
+import { DiagPage } from './pages/diag/DiagPage';
+import { AlertConfigPage } from './pages/alert/AlertConfigPage';
 import { AntdAppBridge } from './utils/antMsg';
 
 dayjs.locale('zh-cn');
@@ -52,6 +54,8 @@ export const App: React.FC = () => {
               <Route path="stats/error" element={<ErrorStatPage />} />
               <Route path="stats/runtime" element={<RuntimeStatPage />} />
               <Route path="deploy" element={<DeployPage />} />
+              <Route path="diag" element={<DiagPage />} />
+              <Route path="alert" element={<AlertConfigPage />} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
             <Route path="/login" element={<Navigate to="/dashboard" replace />} />
