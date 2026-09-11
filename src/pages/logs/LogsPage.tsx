@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Form,
   Select,
@@ -14,6 +15,7 @@ import {
   Switch,
   Segmented,
   Empty,
+  Spin,
 } from 'antd';
 import { message } from '../../utils/antMsg';
 import dayjs from 'dayjs';
@@ -46,9 +48,28 @@ export const LogsPage: React.FC = () => {
   const [levels, setLevels] = useState<LogLevel[]>([]);
 
   // Search State
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tracingTarget, setTracingTarget] = useState<string | null>(null);
   const [searchForm] = Form.useForm();
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<MatchedRecord[]>([]);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const currentParamsRef = useRef<SearchOptions | null>(null);
+  const currentBatchSizeRef = useRef<number>(50);
+  const isFetchingRef = useRef(false);
+  const hasMoreRef = useRef(false);
+  const searchResultsRef = useRef<MatchedRecord[]>([]);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    searchResultsRef.current = searchResults;
+  }, [searchResults]);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
 
   // Context Near Drawer State
   const [nearDrawerOpen, setNearDrawerOpen] = useState(false);
@@ -95,14 +116,30 @@ export const LogsPage: React.FC = () => {
 
   // Handle Search
   const handleSearch = async (values: any) => {
+    if (searching) return;
     setSearching(true);
+    setSearchResults([]);
+    setHasMore(false);
+    hasMoreRef.current = false;
+
+    // Reset table scroll position to top
+    if (tableContainerRef.current) {
+      const tableBody = tableContainerRef.current.querySelector('.ant-table-body');
+      if (tableBody) {
+        tableBody.scrollTop = 0;
+      }
+    }
+
+    const batchSize = values.size || 50;
+    currentBatchSizeRef.current = batchSize;
+
     try {
       const opts: SearchOptions = {
         categories: values.categories?.length ? values.categories : undefined,
         levels: values.levels?.length ? values.levels : undefined,
         traceID: values.traceID?.trim() || undefined,
         keyword: values.keyword?.trim() || undefined,
-        size: values.size || 100,
+        size: batchSize,
       };
 
       if (values.timeRange && values.timeRange[0] && values.timeRange[1]) {
@@ -110,14 +147,156 @@ export const LogsPage: React.FC = () => {
         opts.endTime = values.timeRange[1].format('YYYY-MM-DD HH:mm:ss');
       }
 
+      currentParamsRef.current = opts;
       const results = await logApi.searchLogs(opts);
-      setSearchResults(results || []);
+      const list = results || [];
+      setSearchResults(list);
+      const more = list.length >= batchSize;
+      setHasMore(more);
+      hasMoreRef.current = more;
     } catch (err: any) {
       message.error(err.message || '检索日志失败');
+      setHasMore(false);
+      hasMoreRef.current = false;
     } finally {
       setSearching(false);
     }
   };
+
+  // Handle URL query parameters for tracing / external navigation
+  useEffect(() => {
+    const traceIDParam = searchParams.get('traceID');
+    const keywordParam = searchParams.get('keyword');
+    const levelsParam = searchParams.get('levels');
+    const startTimeParam = searchParams.get('startTime');
+    const endTimeParam = searchParams.get('endTime');
+
+    if (traceIDParam || keywordParam || levelsParam || startTimeParam) {
+      setActiveTab('search');
+
+      let timeRange: [dayjs.Dayjs, dayjs.Dayjs] = [dayjs().subtract(7, 'day'), dayjs()];
+      if (startTimeParam && endTimeParam) {
+        const s = dayjs(startTimeParam);
+        const e = dayjs(endTimeParam);
+        if (s.isValid() && e.isValid()) {
+          timeRange = [s, e];
+        }
+      }
+
+      let parsedLevels: LogLevel[] | undefined = undefined;
+      if (levelsParam) {
+        parsedLevels = levelsParam.split(',').map((l) => l.trim().toLowerCase()) as LogLevel[];
+      }
+
+      const formValues = {
+        traceID: traceIDParam || undefined,
+        keyword: keywordParam || undefined,
+        levels: parsedLevels,
+        timeRange,
+        size: 50,
+      };
+
+      searchForm.setFieldsValue(formValues);
+      setTracingTarget(
+        traceIDParam
+          ? `TraceID: ${traceIDParam}`
+          : keywordParam
+          ? `关键词: ${keywordParam}`
+          : '特征检索'
+      );
+
+      handleSearch(formValues);
+    }
+  }, [searchParams]);
+
+  // Handle Load More (Scroll pagination)
+  const handleLoadMore = useCallback(async () => {
+    if (isFetchingRef.current || searching || loadingMore || !hasMoreRef.current) {
+      return;
+    }
+    if (!currentParamsRef.current) {
+      return;
+    }
+    const currentList = searchResultsRef.current;
+    if (!currentList || currentList.length === 0) {
+      return;
+    }
+    const lastItem = currentList[currentList.length - 1];
+    if (!lastItem || !lastItem.path) {
+      return;
+    }
+
+    isFetchingRef.current = true;
+    setLoadingMore(true);
+
+    try {
+      const nextOpts: SearchOptions = {
+        ...currentParamsRef.current,
+        lastPath: lastItem.path,
+        lastLine: lastItem.line,
+        size: currentBatchSizeRef.current,
+      };
+      const newResults = await logApi.searchLogs(nextOpts);
+      const nextList = newResults || [];
+      if (nextList.length === 0) {
+        setHasMore(false);
+        hasMoreRef.current = false;
+      } else {
+        setSearchResults((prev) => [...prev, ...nextList]);
+        const more = nextList.length >= currentBatchSizeRef.current;
+        setHasMore(more);
+        hasMoreRef.current = more;
+      }
+    } catch (err: any) {
+      message.error(err.message || '加载更多日志失败');
+    } finally {
+      setLoadingMore(false);
+      isFetchingRef.current = false;
+    }
+  }, [searching, loadingMore]);
+
+  // 1. Table body scroll listener
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    const tableBody = container.querySelector('.ant-table-body');
+    if (!tableBody) return;
+
+    const handleScroll = () => {
+      if (isFetchingRef.current || !hasMoreRef.current) return;
+      const { scrollTop, scrollHeight, clientHeight } = tableBody;
+      if (scrollHeight - scrollTop - clientHeight < 150) {
+        handleLoadMore();
+      }
+    };
+
+    tableBody.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      tableBody.removeEventListener('scroll', handleScroll);
+    };
+  }, [handleLoadMore, searchResults.length, hasMore]);
+
+  // 2. IntersectionObserver on bottom sentinel
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry && entry.isIntersecting) {
+          if (!isFetchingRef.current && hasMoreRef.current) {
+            handleLoadMore();
+          }
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [handleLoadMore, searchResults.length, hasMore]);
 
   // Open Context Lines (Near)
   const handleOpenNear = async (path: string, line: number, range = contextRange) => {
@@ -491,7 +670,7 @@ export const LogsPage: React.FC = () => {
             <Form
               form={searchForm}
               onFinish={handleSearch}
-              initialValues={{ size: 100, timeRange: [dayjs().subtract(10, 'minute'), dayjs()] }}
+              initialValues={{ size: 50, timeRange: [dayjs().subtract(10, 'minute'), dayjs()] }}
               className="space-y-3"
             >
               {/* Row 1: Primary Search & Actions (12 Columns Total) */}
@@ -603,15 +782,15 @@ export const LogsPage: React.FC = () => {
                   <Form.Item name="size" className="!mb-0 w-full">
                     <Select
                       options={[
-                        { label: '50 条/页', value: 50 },
-                        { label: '100 条/页', value: 100 },
-                        { label: '200 条/页', value: 200 },
-                        { label: '500 条/页', value: 500 },
+                        { label: '50 条/批', value: 50 },
+                        { label: '100 条/批', value: 100 },
+                        { label: '200 条/批', value: 200 },
+                        { label: '500 条/批', value: 500 },
                       ]}
                       prefix={
                         <span className="text-gray-400 text-xs flex items-center gap-1 mr-1 font-medium select-none">
                           <BarsOutlined />
-                          <span>条数</span>
+                          <span>单批</span>
                         </span>
                       }
                       className="w-full h-9 rounded-lg text-xs"
@@ -634,9 +813,15 @@ export const LogsPage: React.FC = () => {
                     onClick={() => {
                       searchForm.resetFields();
                       searchForm.setFieldsValue({
-                        size: 100,
+                        size: 50,
                         timeRange: [dayjs().subtract(10, 'minute'), dayjs()],
                       });
+                      setSearchResults([]);
+                      setHasMore(false);
+                      hasMoreRef.current = false;
+                      currentParamsRef.current = null;
+                      setTracingTarget(null);
+                      setSearchParams({});
                     }}
                     icon={<ReloadOutlined />}
                     className="h-9 px-3 rounded-lg text-xs text-gray-600 dark:text-gray-300 hover:text-gray-900 border-gray-200 dark:border-slate-700 hover:bg-gray-50 transition"
@@ -653,36 +838,91 @@ export const LogsPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="font-medium text-gray-700 dark:text-gray-300">结构化日志检索结果</span>
               {searchResults.length > 0 ? (
-                <Tag color="blue" className="font-mono text-[11px] px-1.5 py-0 rounded">
-                  共 {searchResults.length} 条命中
-                </Tag>
+                <div className="flex items-center gap-1.5">
+                  <Tag color="blue" className="font-mono text-[11px] px-1.5 py-0 rounded">
+                    已加载 {searchResults.length} 条
+                  </Tag>
+                  {hasMore && (
+                    <Tag color="orange" className="text-[11px] px-1.5 py-0 rounded">
+                      向下滚动加载更多
+                    </Tag>
+                  )}
+                  {tracingTarget && (
+                    <Tag color="purple" className="text-[11px] px-1.5 py-0 rounded font-mono">
+                      溯源目标：{tracingTarget}
+                    </Tag>
+                  )}
+                </div>
               ) : (
-                <span className="text-gray-400 font-mono text-[11px]">暂无数据</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400 font-mono text-[11px]">暂无数据</span>
+                  {tracingTarget && (
+                    <Tag color="purple" className="text-[11px] px-1.5 py-0 rounded font-mono">
+                      溯源目标：{tracingTarget}
+                    </Tag>
+                  )}
+                </div>
               )}
             </div>
             <span className="text-[11px] text-gray-400 hidden sm:inline">
-              提示：点击 TraceID 可在独立弹窗查看全链路日志，点击“上下文”可反查前后 50 行
+              提示：向下滚动表格即可自动分页加载更多日志，点击 TraceID 可在独立弹窗查看全链路
             </span>
           </div>
 
           {/* 3. Results Table with tableLayout='fixed' (Prevents overflowing & overlaps) */}
-          <div className="bg-white dark:bg-slate-900 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-slate-800">
+          <div
+            ref={tableContainerRef}
+            className="bg-white dark:bg-slate-900 rounded-lg p-3 shadow-sm border border-gray-100 dark:border-slate-800"
+          >
             <Table
               tableLayout="fixed"
-              scroll={{ x: 1100 }}
+              scroll={{ x: 1100, y: 'calc(100vh - 370px)' }}
               dataSource={searchResults}
               columns={searchColumns}
-              rowKey={(r) => `${r.path}-${r.line}`}
+              rowKey={(r, idx) => `${r.path}-${r.line}-${idx}`}
               loading={searching}
-              pagination={{
-                pageSize: 15,
-                showSizeChanger: true,
-                pageSizeOptions: ['15', '30', '50', '100'],
-                showTotal: (total) => `共 ${total} 条日志`,
-                size: 'small',
-              }}
+              pagination={false}
               size="small"
+              locale={{
+                emptyText: (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={searching ? '正在检索结构化日志...' : '暂无匹配的日志记录，请调整检索条件后重试'}
+                  />
+                ),
+              }}
             />
+
+            {/* Bottom Infinite Scroll Status Indicator */}
+            {searchResults.length > 0 && (
+              <div
+                ref={sentinelRef}
+                className="mt-3 py-2.5 flex items-center justify-center border-t border-gray-100 dark:border-slate-800 text-xs text-gray-500"
+              >
+                {loadingMore ? (
+                  <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-medium">
+                    <Spin size="small" />
+                    <span>正在滚动加载下一批日志 (单批 {currentBatchSizeRef.current} 条)...</span>
+                  </div>
+                ) : hasMore ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400">向下滚动自动加载更多</span>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => handleLoadMore()}
+                      className="text-xs text-indigo-600 hover:text-indigo-500 p-0 h-auto font-medium"
+                    >
+                      点击手动加载
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-gray-400 select-none">
+                    已加载全部检索结果（共 {searchResults.length} 条）
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (

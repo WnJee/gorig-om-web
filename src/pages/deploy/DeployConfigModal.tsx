@@ -61,7 +61,7 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
   const [branch, setBranch] = useState('');
   const [otherRepos, setOtherRepos] = useState<OtherRepo[]>([]);
   const [autoTrigger, setAutoTrigger] = useState(false);
-  const [healthCheckUrl, setHealthCheckUrl] = useState('');
+  const [healthCheckUrl, setHealthCheckUrl] = useState('/ping');
   const [healthCheckTimeout, setHealthCheckTimeout] = useState(30);
   const [autoRollback, setAutoRollback] = useState(true);
 
@@ -79,14 +79,18 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
   // Sync Initial Config
   useEffect(() => {
     if (initialConfig) {
-      setGitInit(initialConfig.gitInit ?? true);
-      setGoInit(initialConfig.goInit ?? true);
+      setGitInit(gitStatus?.installed ?? (initialConfig.gitInit ?? true));
+      setGoInit(goStatus?.installed ?? (initialConfig.goInit ?? true));
       setSshKeyCopy(initialConfig.sshKeyCopy ?? true);
       setRepo(initialConfig.repo || '');
       setBranch(initialConfig.branch || '');
       setOtherRepos(initialConfig.otherRepos || []);
       setAutoTrigger(initialConfig.autoTrigger ?? false);
-      setHealthCheckUrl(initialConfig.healthCheckUrl || '');
+      setHealthCheckUrl(
+        initialConfig.healthCheckUrl !== undefined && initialConfig.healthCheckUrl !== ''
+          ? initialConfig.healthCheckUrl
+          : '/ping'
+      );
       setHealthCheckTimeout(initialConfig.healthCheckTimeout || 30);
       setAutoRollback(initialConfig.autoRollback ?? true);
 
@@ -101,13 +105,16 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
         });
       }
     } else {
+      setGitInit(gitStatus?.installed ?? true);
+      setGoInit(goStatus?.installed ?? true);
+      setSshKeyCopy(true);
       setBranch('');
       setBranchOptions([]);
-      setHealthCheckUrl('');
+      setHealthCheckUrl('/ping');
       setHealthCheckTimeout(30);
       setAutoRollback(true);
     }
-  }, [initialConfig, open]);
+  }, [initialConfig, open, gitStatus, goStatus]);
 
   // Fetch branches helper for main repo
   const fetchBranchList = async (targetRepo: string) => {
@@ -294,16 +301,16 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
     setSaving(true);
     try {
       const configPayload: TaskOptions = {
-        gitInit,
-        goInit,
-        sshKeyCopy,
+        gitInit: Boolean(gitInit ?? gitStatus?.installed ?? true),
+        goInit: Boolean(goInit ?? goStatus?.installed ?? true),
+        sshKeyCopy: Boolean(sshKeyCopy ?? true),
         repo: repo.trim(),
         branch,
         otherRepos: otherRepos.filter((r) => r.dir && r.repo),
-        autoTrigger,
+        autoTrigger: Boolean(autoTrigger),
         healthCheckUrl: healthCheckUrl.trim(),
         healthCheckTimeout: Number(healthCheckTimeout) || 30,
-        autoRollback,
+        autoRollback: Boolean(autoRollback),
       };
 
       await deployApi.saveTaskConfig(configPayload);
@@ -728,7 +735,7 @@ export const DeployConfigModal: React.FC<DeployConfigModalProps> = ({
                     探针 URL / 相对路径 (可选):
                   </label>
                   <Input
-                    placeholder="例如: /healthz 或 http://127.0.0.1:19617/healthz (留空则直接判定成功)"
+                    placeholder="例如: /ping 或 http://127.0.0.1:19617/ping (留空则直接判定成功)"
                     value={healthCheckUrl}
                     onChange={(e) => setHealthCheckUrl(e.target.value)}
                     className="rounded-lg text-xs"

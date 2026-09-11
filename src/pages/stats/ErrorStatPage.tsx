@@ -208,21 +208,58 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
           >
             详情
           </Button>
-          {r.sampleTrace && (
-            <Button
-              type="link"
-              size="middle"
-              icon={<SearchOutlined />}
-              onClick={() => navigate('/logs')}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              溯源
-            </Button>
-          )}
+          <Button
+            type="link"
+            size="middle"
+            icon={<SearchOutlined />}
+            onClick={() => handleTrace(r)}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            溯源
+          </Button>
         </Space>
       ),
     },
   ];
+
+  const handleTrace = (r: ErrSigRank) => {
+    const params = new URLSearchParams();
+
+    // 1. Trace by Sample TraceID if available (highest accuracy)
+    if (r.sampleTrace && r.sampleTrace.trim()) {
+      params.set('traceID', r.sampleTrace.trim());
+    } else {
+      // Otherwise trace by sample error / message or distinct signature keywords
+      const rawText = r.sampleError || r.sampleMsg || '';
+      const firstLine = rawText.split('\n')[0].trim();
+      if (firstLine) {
+        params.set('keyword', firstLine.slice(0, 80));
+      } else if (r.signature) {
+        const cleanSig = r.signature.replace(/[?|]/g, ' ').trim().split(/\s+/).slice(0, 6).join(' ');
+        if (cleanSig) {
+          params.set('keyword', cleanSig);
+        }
+      }
+    }
+
+    // 2. Set log level
+    if (r.level) {
+      params.set('levels', r.level.toLowerCase());
+    }
+
+    // 3. Set time range covering occurrence with generous 30-minute buffer
+    if (r.firstAt && r.firstAt > 0) {
+      const startMs = r.firstAt < 1e11 ? r.firstAt * 1000 : r.firstAt;
+      const endMs = (r.lastAt || r.firstAt) < 1e11 ? (r.lastAt || r.firstAt) * 1000 : (r.lastAt || r.firstAt);
+      params.set('startTime', dayjs(startMs).subtract(30, 'minute').format('YYYY-MM-DD HH:mm:ss'));
+      params.set('endTime', dayjs(endMs).add(30, 'minute').format('YYYY-MM-DD HH:mm:ss'));
+    } else {
+      params.set('startTime', dayjs().subtract(7, 'day').format('YYYY-MM-DD HH:mm:ss'));
+      params.set('endTime', dayjs().format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    navigate(`/logs?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -294,11 +331,40 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
         }
         open={!!selectedSig}
         onCancel={() => setSelectedSig(null)}
-        footer={null}
+        footer={
+          selectedSig ? (
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-gray-400">
+                首次: {formatTime(selectedSig.firstAt)} | 最近: {formatTime(selectedSig.lastAt)}
+              </span>
+              <Space>
+                <Button onClick={() => setSelectedSig(null)}>关闭</Button>
+                <Button
+                  type="primary"
+                  icon={<SearchOutlined />}
+                  onClick={() => {
+                    handleTrace(selectedSig);
+                    setSelectedSig(null);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-500"
+                >
+                  前往日志中心溯源
+                </Button>
+              </Space>
+            </div>
+          ) : null
+        }
         width={700}
       >
         {selectedSig && (
           <div className="space-y-4 mt-4">
+            <div>
+              <div className="text-xs font-semibold text-gray-500 mb-1">归一化签名:</div>
+              <div className="p-2.5 rounded bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-xs font-mono text-gray-800 dark:text-gray-200 break-all">
+                {selectedSig.signature}
+              </div>
+            </div>
+
             <div>
               <div className="text-xs font-semibold text-gray-500 mb-1">归一化签名 Hash:</div>
               <span className="font-mono text-xs bg-gray-100 dark:bg-slate-800 px-2 py-1 rounded">
@@ -308,7 +374,7 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
 
             <div>
               <div className="text-xs font-semibold text-gray-500 mb-1">抽样异常日志:</div>
-              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-mono text-red-700 dark:text-red-300">
+              <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-xs font-mono text-red-700 dark:text-red-300 break-all">
                 {selectedSig.sampleError || selectedSig.sampleMsg || '无样本信息'}
               </div>
             </div>
@@ -321,10 +387,6 @@ export const ErrorStatPage: React.FC<{ isModal?: boolean }> = ({ isModal = false
                 </Tag>
               </div>
             )}
-
-            <div className="text-xs text-gray-400">
-              首次出现: {formatTime(selectedSig.firstAt)} | 最近出现: {formatTime(selectedSig.lastAt)}
-            </div>
           </div>
         )}
       </Modal>

@@ -215,13 +215,13 @@ export interface OtherRepo {
 }
 
 export interface TaskOptions {
-  gitInit: boolean;
-  goInit: boolean;
-  sshKeyCopy: boolean;
+  gitInit?: boolean;
+  goInit?: boolean;
+  sshKeyCopy?: boolean;
   repo: string;
   branch: string;
   otherRepos?: OtherRepo[];
-  autoTrigger: boolean;
+  autoTrigger?: boolean;
   healthCheckUrl?: string;
   healthCheckTimeout?: number;
   autoRollback?: boolean;

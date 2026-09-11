@@ -14,6 +14,7 @@ import {
   Row,
   Col,
   Select,
+  Modal,
 } from 'antd';
 import { message } from '../../utils/antMsg';
 import {
@@ -36,6 +37,7 @@ import {
   CloudUploadOutlined,
   SaveOutlined,
   DownloadOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import { deployApi } from '../../api/deploy';
 import { EnvVersion, GoEnv, SshKey, TaskOptions, TaskRecord, TaskRecordLog } from '../../types';
@@ -48,29 +50,111 @@ import { DeployConfigModal } from './DeployConfigModal';
 
 const { Paragraph } = Typography;
 
-function formatTaskDuration(start?: string | number, finish?: string | number, status?: string): string {
+function isValidTime(t?: string | number | null): boolean {
+  if (!t) return false;
+  if (typeof t === 'string' && (t.startsWith('0001-01-01') || t.startsWith('1970-01-01'))) {
+    return false;
+  }
+  const d = dayjs(typeof t === 'number' && t < 1e11 ? t * 1000 : t);
+  return d.isValid() && d.year() > 2000;
+}
+
+function getValidStartTime(r: TaskRecord): string | undefined {
+  if (isValidTime(r.startAt)) return r.startAt;
+  if (isValidTime(r.createAt)) return r.createAt;
+  return undefined;
+}
+
+function formatTaskDuration(
+  start?: string | number,
+  finish?: string | number,
+  status?: string,
+  nowMs?: number
+): string {
   if (!start) return '-';
   const startDay = dayjs(typeof start === 'number' && start < 1e11 ? start * 1000 : start);
   if (!startDay.isValid()) return '-';
 
-  if (finish) {
-    const finishDay = dayjs(typeof finish === 'number' && finish < 1e11 ? finish * 1000 : finish);
-    if (finishDay.isValid() && finishDay.isAfter(startDay)) {
-      const diff = finishDay.diff(startDay, 'second');
-      if (diff < 60) return `${diff}秒`;
-      return `${Math.floor(diff / 60)}分${diff % 60}秒`;
-    }
-    return '1秒';
+  if (status === 'waiting') {
+    return '-';
   }
 
-  if (status === 'running' || status === 'waiting') {
-    const diff = Math.max(0, dayjs().diff(startDay, 'second'));
+  if (status === 'running') {
+    const current = nowMs ? dayjs(nowMs) : dayjs();
+    const diff = Math.max(1, current.diff(startDay, 'second'));
     if (diff < 60) return `${diff}秒 (执行中)`;
-    return `${Math.floor(diff / 60)}分${diff % 60}秒 (执行中)`;
+    if (diff < 3600) return `${Math.floor(diff / 60)}分${diff % 60}秒 (执行中)`;
+    return `${Math.floor(diff / 3600)}小时${Math.floor((diff % 3600) / 60)}分 (执行中)`;
   }
 
-  return '-';
+  if (finish && isValidTime(finish)) {
+    const finishDay = dayjs(typeof finish === 'number' && finish < 1e11 ? finish * 1000 : finish);
+    if (finishDay.isValid()) {
+      const diff = Math.max(1, finishDay.diff(startDay, 'second'));
+      if (diff < 60) return `${diff}秒`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}分${diff % 60}秒`;
+      return `${Math.floor(diff / 3600)}小时${Math.floor((diff % 3600) / 60)}分`;
+    }
+  }
+
+  return '1秒';
 }
+
+interface TaskDurationDisplayProps {
+  record: TaskRecord;
+  inline?: boolean;
+  timeFormat?: string;
+}
+
+const TaskDurationDisplay: React.FC<TaskDurationDisplayProps> = ({
+  record,
+  inline = false,
+  timeFormat = 'YYYY-MM-DD HH:mm:ss',
+}) => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (record.status !== 'running') return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [record.status]);
+
+  if (record.status === 'waiting') {
+    if (inline) {
+      return <span className="text-gray-400 text-xs">排队等待中</span>;
+    }
+    return <span className="text-gray-400 text-xs">-</span>;
+  }
+
+  const startTime = getValidStartTime(record);
+  if (!startTime) {
+    return <span className="text-gray-400 text-xs">-</span>;
+  }
+
+  const durationStr = formatTaskDuration(startTime, record.finishAt, record.status, now);
+
+  if (inline) {
+    return (
+      <div className="font-mono text-xs text-gray-500 flex items-center gap-3">
+        <span>起: {formatTime(startTime, timeFormat)}</span>
+        <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+          耗时: {durationStr}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-xs text-gray-500 font-mono space-y-0.5">
+      <div>起: {formatTime(startTime, timeFormat)}</div>
+      <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+        耗时: {durationStr}
+      </div>
+    </div>
+  );
+};
 
 export const DeployPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('tasks');
@@ -116,6 +200,8 @@ export const DeployPage: React.FC = () => {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [taskConfig, setTaskConfig] = useState<TaskOptions | null>(null);
   const [configLoading, setConfigLoading] = useState(false);
+  const [confirmDeployModalOpen, setConfirmDeployModalOpen] = useState(false);
+  const [deployTriggerLoading, setDeployTriggerLoading] = useState(false);
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
   const [fetchingBranches, setFetchingBranches] = useState(false);
   const [repoBranchesMap, setRepoBranchesMap] = useState<Record<string, string[]>>({});
@@ -254,18 +340,32 @@ export const DeployPage: React.FC = () => {
       if (selectedTask) {
         deployApi.getTask(selectedTask.id).then((t) => setSelectedTask(t));
       }
-    }, 4000);
+    }, 2000);
     return () => clearInterval(timer);
   }, [tasks, tasksPage, tasksSize, selectedTask, fetchTasks]);
 
-  // Trigger Start Task
-  const handleStartTask = async () => {
+  // Open Deploy Confirmation Modal
+  const handleOpenDeployConfirm = () => {
+    if (!taskConfig?.repo) {
+      message.warning('尚未配置部署仓库与分支，请先打开向导进行配置');
+      setConfigModalOpen(true);
+      return;
+    }
+    setConfirmDeployModalOpen(true);
+  };
+
+  // Confirm Trigger Start Task
+  const handleConfirmStartTask = async () => {
+    setDeployTriggerLoading(true);
     try {
       await deployApi.startTask();
       message.success('已触发部署任务，正在排队执行...');
+      setConfirmDeployModalOpen(false);
       fetchTasks(1, tasksSize);
     } catch (err: any) {
       message.error(err.message || '触发部署失败');
+    } finally {
+      setDeployTriggerLoading(false);
     }
   };
 
@@ -372,14 +472,7 @@ export const DeployPage: React.FC = () => {
     {
       title: '执行时间 / 耗时',
       key: 'time',
-      render: (_: any, r: TaskRecord) => (
-        <div className="text-xs text-gray-500 font-mono space-y-0.5">
-          <div>起: {formatTime(r.startAt || r.createAt)}</div>
-          <div className="text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
-            耗时: {formatTaskDuration(r.startAt || r.createAt, r.finishAt, r.status)}
-          </div>
-        </div>
-      ),
+      render: (_: any, r: TaskRecord) => <TaskDurationDisplay record={r} />,
     },
     {
       title: '可回滚状态',
@@ -450,7 +543,7 @@ export const DeployPage: React.FC = () => {
               type="primary"
               size="middle"
               icon={<PlayCircleOutlined className="text-base" />}
-              onClick={handleStartTask}
+              onClick={handleOpenDeployConfirm}
               className="bg-indigo-600 hover:!bg-indigo-700 text-sm font-medium rounded-lg h-9 px-4 shadow-sm"
             >
               立即触发部署
@@ -1093,12 +1186,7 @@ export const DeployPage: React.FC = () => {
                   </div>
                 )}
               </Space>
-              <div className="font-mono text-xs text-gray-500 flex items-center gap-3">
-                <span>起: {formatTime(selectedTask.startAt || selectedTask.createAt, 'HH:mm:ss')}</span>
-                <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                  耗时: {formatTaskDuration(selectedTask.startAt || selectedTask.createAt, selectedTask.finishAt, selectedTask.status)}
-                </span>
-              </div>
+              <TaskDurationDisplay record={selectedTask} inline timeFormat="HH:mm:ss" />
             </div>
 
             <div
@@ -1154,6 +1242,86 @@ export const DeployPage: React.FC = () => {
         sshKey={sshKey}
         onRefreshEnv={fetchEnvironment}
       />
+
+      {/* 立即触发部署二次确认弹窗 */}
+      <Modal
+        title={
+          <div className="flex items-center space-x-2 text-base font-bold text-gray-800 dark:text-white">
+            <RocketOutlined className="text-indigo-600" />
+            <span>确认立即触发部署</span>
+          </div>
+        }
+        open={confirmDeployModalOpen}
+        onCancel={() => !deployTriggerLoading && setConfirmDeployModalOpen(false)}
+        footer={[
+          <Button
+            key="cancel"
+            disabled={deployTriggerLoading}
+            onClick={() => setConfirmDeployModalOpen(false)}
+            className="rounded-lg text-xs"
+          >
+            取消
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            loading={deployTriggerLoading}
+            icon={<PlayCircleOutlined />}
+            onClick={handleConfirmStartTask}
+            className="bg-indigo-600 hover:!bg-indigo-700 rounded-lg text-xs font-medium"
+          >
+            确认触发部署
+          </Button>,
+        ]}
+        width={560}
+        destroyOnHidden
+      >
+        <div className="py-2 space-y-4">
+          <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-xl text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+            系统将立即拉取目标分支最新代码并在服务器本地执行编译与构建部署。请核对以下项目仓库与分支配置：
+          </div>
+
+          <div className="bg-gray-50 dark:bg-slate-800/60 p-4 rounded-xl border border-gray-100 dark:border-slate-800 space-y-3 text-xs">
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">Git 仓库地址:</span>
+              <span className="font-mono text-gray-800 dark:text-gray-200 text-right max-w-[360px] break-all select-all font-semibold">
+                {taskConfig?.repo || '-'}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-gray-200/60 dark:border-slate-700/60 pt-2.5">
+              <span className="text-gray-500 dark:text-gray-400 font-medium">部署目标分支:</span>
+              <Tag color="indigo" className="font-mono px-2.5 py-0.5 text-xs font-semibold">
+                {taskConfig?.branch || '-'}
+              </Tag>
+            </div>
+
+            {taskConfig?.otherRepos && taskConfig.otherRepos.length > 0 && (
+              <div className="border-t border-gray-200/60 dark:border-slate-700/60 pt-2.5 space-y-1.5">
+                <span className="text-gray-500 dark:text-gray-400 font-medium">
+                  依赖二方库 ({taskConfig.otherRepos.length} 个):
+                </span>
+                <div className="space-y-1 pl-2">
+                  {taskConfig.otherRepos.map((item, idx) => (
+                    <div key={idx} className="font-mono text-[11px] text-gray-600 dark:text-gray-400">
+                      • {item.dir} → {item.repo} ({item.branch})
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {taskConfig?.healthCheckUrl && (
+              <div className="flex items-center justify-between border-t border-gray-200/60 dark:border-slate-700/60 pt-2.5">
+                <span className="text-gray-500 dark:text-gray-400 font-medium">健康检查探针:</span>
+                <span className="font-mono text-gray-700 dark:text-gray-300">
+                  {taskConfig.healthCheckUrl} ({taskConfig.healthCheckTimeout || 30}s)
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

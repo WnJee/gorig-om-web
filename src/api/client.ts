@@ -1,5 +1,4 @@
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
-import { message } from '../utils/antMsg';
 import { useAuthStore } from '../stores/useAuthStore';
 import { ApiResponse } from '../types';
 
@@ -133,9 +132,6 @@ apiClient.interceptors.response.use(
         return res.data;
       } else {
         const errorMsg = res.msg || '操作失败';
-        if (!response.config?.url?.includes('/om/auth/connect')) {
-          message.error(errorMsg);
-        }
         return Promise.reject(new Error(errorMsg));
       }
     }
@@ -170,11 +166,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    let errorMsg = resData?.msg || error.message || '网络请求错误';
-    if (!config?.url?.includes('/om/auth/connect')) {
-      message.error(errorMsg);
-    }
-
+    const errorMsg = resData?.msg || error.message || '网络请求错误';
     return Promise.reject(new Error(errorMsg));
   }
 );

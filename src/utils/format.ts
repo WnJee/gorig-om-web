@@ -5,12 +5,17 @@ import dayjs from 'dayjs';
  */
 export function formatTime(ts?: number | string | null, format = 'YYYY-MM-DD HH:mm:ss'): string {
   if (!ts) return '-';
+  if (typeof ts === 'string' && (ts.startsWith('0001-01-01') || ts.startsWith('1970-01-01'))) {
+    return '-';
+  }
   const num = typeof ts === 'string' && /^\d+$/.test(ts.trim()) ? Number(ts) : typeof ts === 'number' ? ts : NaN;
   if (!isNaN(num) && num > 0) {
     const ms = num < 1e11 ? num * 1000 : num;
-    return dayjs(ms).format(format);
+    const d = dayjs(ms);
+    return d.isValid() && d.year() > 2000 ? d.format(format) : '-';
   }
-  return dayjs(ts).format(format);
+  const d = dayjs(ts);
+  return d.isValid() && d.year() > 2000 ? d.format(format) : '-';
 }
 
 /**
