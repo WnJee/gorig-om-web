@@ -1,6 +1,6 @@
 # Gorig-OM Web 前端管理平台
 
-[Gorig-OM](https://github.com/jom-io/gorig-om) 的现代化运维与性能监控管理 Web 前端面板。基于 React 18、TypeScript、Ant Design 5 与 ECharts 构建。
+[Gorig-OM](https://github.com/WnJee/gorig-om) 的现代化运维与性能监控管理 Web 前端面板。基于 React 18、TypeScript、Ant Design 5 与 ECharts 构建。
 
 ## 功能特性
 

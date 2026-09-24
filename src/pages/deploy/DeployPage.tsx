@@ -845,7 +845,7 @@ export const DeployPage: React.FC = () => {
                             <p>请填写主仓库依赖的其他仓库，目录需为同级目录。</p>
                             <p className="font-medium text-gray-700 dark:text-gray-200">例如：</p>
                             <div className="font-mono text-cyan-800 dark:text-cyan-300 bg-white/80 dark:bg-slate-900/80 px-3 py-1.5 rounded-lg border border-cyan-100 dark:border-cyan-900/50 select-text">
-                              replace github.com/jom-io/gorig-om =&gt; ../gorig-om
+                              replace github.com/WnJee/gorig-om =&gt; ../gorig-om
                             </div>
                           </div>
                         </div>
